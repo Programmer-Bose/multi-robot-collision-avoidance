@@ -26,7 +26,7 @@ from de_mpc import DEMPCPlanner
 
 # ----------------------------- CONFIG -----------------------------
 RECEDING_HORIZON = True     # <-- TOGGLE THIS: True = replan every step, False = single-shot DE
-SEED = 456
+SEED = 222
 N_STATIC = 5
 N_DYNAMIC = 5
 N_TASKS = 5

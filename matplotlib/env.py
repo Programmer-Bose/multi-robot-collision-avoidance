@@ -286,7 +286,7 @@ def order_tasks_nearest_neighbor(start_xy, task_points):
     # rotate so the first visited point is the one nearest the start
     dists = [np.linalg.norm(start - p) for p in ordered]
     first_idx = int(np.argmin(dists))
-    print(f"Task ordering: start={start} -> nearest task={ordered[first_idx]} (idx={first_idx})")
+    # print(f"Task ordering: start={start} -> nearest task={ordered[first_idx]} (idx={first_idx})")
     return ordered[first_idx:] + ordered[:first_idx]
 
 def make_default_scenario(seed=0, n_static=4, n_dynamic=3, n_tasks=4,
@@ -296,6 +296,7 @@ def make_default_scenario(seed=0, n_static=4, n_dynamic=3, n_tasks=4,
 
     #random start
     start = np.array([rng.uniform(xmin + 1, xmax - 1), rng.uniform(ymin + 1, ymax - 1), 0.0])
+    print(f"Start: {start}")
 
     task_points = []
     while len(task_points) < n_tasks:
