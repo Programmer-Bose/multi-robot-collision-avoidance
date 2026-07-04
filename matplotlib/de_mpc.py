@@ -185,9 +185,10 @@ class DEMPCPlanner:
         else:
             raise ValueError(self.optimizer)
 
-        print(f"[DE] before (zero controls) cost = {before_cost:.3f} | after (DE) cost = {fun:.3f}")
+        print(f"{self.optimizer} before (zero controls) cost = {before_cost:.3f} | after ({self.optimizer}) cost = {fun:.3f}")
         self.prev_solution = controls if self.warm_start else None
         return controls[0], controls, fun
+    
     def _plan_de(self, bounds, x0, y0, theta0, goal, static_obstacles, dyn_preds):
         init = self._init_population(bounds)
         result = differential_evolution(
