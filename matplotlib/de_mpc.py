@@ -56,7 +56,7 @@ class DEMPCPlanner:
                  robot_radius=0.15, d_safe_static=0.3, d_safe_dynamic=0.4,
                  w_goal=3.0, w_terminal=8.0, w_collision=250.0, w_smooth=0.5,
                  w_heading=2.0, w_reverse=1.0,
-                 popsize=15, maxiter=40, seed=None):
+                 popsize=15, maxiter=40, optimizer="de", warm_start=True, seed=None):
         self.H = horizon
         self.dt = dt
         self.v_max = v_max
@@ -70,14 +70,23 @@ class DEMPCPlanner:
         self.w_smooth = w_smooth
         self.w_heading = w_heading
         self.w_reverse = w_reverse
-        # self.w_reverse = w_reverse
         self.popsize = popsize
         self.maxiter = maxiter
+        self.optimizer = optimizer
+        self.warm_start = warm_start
+        self.recent_positions = []   # list of (x, y), capped length
+        self.recent_cap = 50         # how many real steps of history to remember
+        self.w_explore = 15.0        # tune this
         self.rng = np.random.default_rng(seed)
 
         # self.bounds = [(0.0, v_max), (-omega_max, omega_max)] * self.H
         self.bounds = [(-0.3 * v_max, v_max), (-omega_max, omega_max)] * self.H
         self.prev_solution = None  # (H,2) array, warm start
+
+    def update_history(self, x, y):
+        self.recent_positions.append((x, y))
+        if len(self.recent_positions) > self.recent_cap:
+            self.recent_positions.pop(0)
 
     def _fitness(self, flat_controls, x0, y0, theta0, goal, static_obs, dyn_preds):
         controls = flat_controls.reshape(self.H, 2)
@@ -159,15 +168,27 @@ class DEMPCPlanner:
     def plan(self, robot_state, goal, static_obstacles, dynamic_obstacles):
         x0, y0, theta0 = robot_state
         dyn_preds = predict_dynamic_obstacles(dynamic_obstacles, self.H, self.dt)
-
         allow_reverse = self._reverse_threat(robot_state, dynamic_obstacles)
         v_lo = -self.v_max if allow_reverse else 0.0
         bounds = [(v_lo, self.v_max), (-self.omega_max, self.omega_max)] * self.H
+        # print(f"[planner] using optimizer={self.optimizer}")
 
+        if self.optimizer == "de":
+            controls, fun = self._plan_de(bounds, x0, y0, theta0, goal, static_obstacles, dyn_preds)
+        elif self.optimizer == "cem":
+            controls, fun = self._plan_cem(bounds, x0, y0, theta0, goal, static_obstacles, dyn_preds)
+        elif self.optimizer == "random_shoot":
+            controls, fun = self._plan_random_shoot(bounds, x0, y0, theta0, goal, static_obstacles, dyn_preds)
+        else:
+            raise ValueError(self.optimizer)
+
+        self.prev_solution = controls if self.warm_start else None
+        return controls[0], controls, fun
+    def _plan_de(self, bounds, x0, y0, theta0, goal, static_obstacles, dyn_preds):
         init = self._init_population(bounds)
         result = differential_evolution(
             self._fitness,
-            bounds=bounds,                     # <-- use local `bounds`, not self.bounds
+            bounds=bounds,
             args=(x0, y0, theta0, goal, static_obstacles, dyn_preds),
             popsize=self.popsize,
             maxiter=self.maxiter,
@@ -180,9 +201,49 @@ class DEMPCPlanner:
             updating="deferred",
         )
         controls = result.x.reshape(self.H, 2)
-        self.prev_solution = controls
-        return controls[0], controls, result.fun
+        return controls, result.fun
 
+    def _plan_cem(self, bounds, x0, y0, theta0, goal, static_obs, dyn_preds,
+              n_samples=200, n_elite=20, n_iters=8, init_std_scale=0.5):
+        n_params = self.H * 2
+        lo = np.array([b[0] for b in bounds])
+        hi = np.array([b[1] for b in bounds])
+
+        if self.prev_solution is not None:
+            shifted = np.vstack([self.prev_solution[1:], self.prev_solution[-1:]])
+            mean = shifted.flatten()
+        else:
+            mean = (lo + hi) / 2
+
+        std = (hi - lo) * init_std_scale
+
+        for _ in range(n_iters):
+            samples = self.rng.normal(mean, std, size=(n_samples, n_params))
+            samples = np.clip(samples, lo, hi)
+            costs = np.array([
+                self._fitness(s, x0, y0, theta0, goal, static_obs, dyn_preds)
+                for s in samples
+            ])
+            elite_idx = np.argsort(costs)[:n_elite]
+            elite = samples[elite_idx]
+            mean = elite.mean(axis=0)
+            std = elite.std(axis=0) + 1e-3   # avoid collapse
+
+        best_cost = self._fitness(mean, x0, y0, theta0, goal, static_obs, dyn_preds)
+        return mean.reshape(self.H, 2), best_cost
+
+    def _plan_random_shoot(self, bounds, x0, y0, theta0, goal, static_obs, dyn_preds,
+                            n_samples=2000):
+        n_params = self.H * 2
+        lo = np.array([b[0] for b in bounds])
+        hi = np.array([b[1] for b in bounds])
+        samples = self.rng.uniform(lo, hi, size=(n_samples, n_params))
+        costs = np.array([
+            self._fitness(s, x0, y0, theta0, goal, static_obs, dyn_preds)
+            for s in samples
+        ])
+        best = np.argmin(costs)
+        return samples[best].reshape(self.H, 2), costs[best]
 
 if __name__ == "__main__":
     # standalone quick test: one DE-MPC solve on a simple static scene

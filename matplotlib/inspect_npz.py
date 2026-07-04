@@ -19,5 +19,5 @@ def inspect_npz(path):
 
 
 if __name__ == "__main__":
-    path = sys.argv[1] if len(sys.argv) > 1 else "data_traj/path_23_5_5_5.npz"
+    path = sys.argv[1] if len(sys.argv) > 1 else "data_traj/path_42_15_10_15.npz"
     inspect_npz(path)

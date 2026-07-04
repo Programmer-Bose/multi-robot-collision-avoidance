@@ -7,16 +7,20 @@ import matplotlib.pyplot as plt
 from env import make_default_scenario
 from de_mpc import DEMPCPlanner
 from rangefinder import simulate_rangefinder
+from occupancy_grid import compute_occupancy_grid
 
 
 def run_episode(seed=1, max_steps=400, horizon=10, verbose=True,
-                 n_rays=15, sensor_range=5.0, record_data=False,n_static=4, n_dynamic=3, n_tasks=4):
+                 n_rays=15, sensor_range=5.0, record_data=False,
+                 n_static=4, n_dynamic=3, n_tasks=4, optimizer="de", warm_start=True):
+    
     env = make_default_scenario(seed=seed, n_static=n_static, n_dynamic=n_dynamic, n_tasks=n_tasks, omega_max=np.pi, v_max=2.0)
     obs = env.reset()
 
     planner = DEMPCPlanner(horizon=horizon, dt=env.dt, v_max=2.5,
-                            omega_max=env.robot.omega_max,
-                            robot_radius=env.robot.radius, seed=seed)
+                        omega_max=env.robot.omega_max,
+                        robot_radius=env.robot.radius, seed=seed,
+                        optimizer=optimizer, warm_start=warm_start)   # <-- this line must exist
 
     solve_times = []
     dataset = []  # only populated if record_data=True
@@ -40,6 +44,12 @@ def run_episode(seed=1, max_steps=400, horizon=10, verbose=True,
                 world_bounds=env.world_bounds,
                 n_rays=n_rays, max_range=sensor_range,
             )
+            occ_grid = compute_occupancy_grid(
+                robot_state=tuple(obs["robot_state"]),
+                static_obstacles=obs["static_obstacles"],
+                dynamic_obstacles=obs["dynamic_obstacles"],
+                grid_size=21, resolution=0.25,
+            )
             rx, ry, rtheta = obs["robot_state"]
             gx, gy = obs["goal"]
             goal_dist = float(np.hypot(gx - rx, gy - ry))
@@ -50,6 +60,7 @@ def run_episode(seed=1, max_steps=400, horizon=10, verbose=True,
                 "goal_dist": goal_dist,
                 "goal_bearing": goal_bearing,
                 "ranges": ranges,               # (n_rays,)
+                "occupancy_grid": occ_grid,
                 "action": np.array([v0, omega0], dtype=float),
             })
 
@@ -72,8 +83,6 @@ def run_episode(seed=1, max_steps=400, horizon=10, verbose=True,
 
 
 def save_dataset(dataset, path="demo_data.npz"):
-    """Pack a list of per-step dicts (from run_episode with record_data=True)
-    into flat arrays and save to a single .npz file."""
     if not dataset:
         print("Empty dataset, nothing saved.")
         return
@@ -83,6 +92,7 @@ def save_dataset(dataset, path="demo_data.npz"):
         goal_dist=np.array([d["goal_dist"] for d in dataset]),
         goal_bearing=np.array([d["goal_bearing"] for d in dataset]),
         ranges=np.stack([d["ranges"] for d in dataset]),
+        occupancy_grid=np.stack([d["occupancy_grid"] for d in dataset]),  # <-- new
         action=np.stack([d["action"] for d in dataset]),
     )
     print(f"Saved {len(dataset)} timesteps to {path}")
@@ -122,17 +132,20 @@ def plot_trajectory(env, save_path="traj/episode_trajectory.png",seed=42):
     plt.savefig(save_path, dpi=130)
     print("Saved:", save_path)
 
-SEED = [321, 666]
+SEED = [42,51,33,24,321,6,2004,1005,2022,5001]
 # SEED = [23]
-N_STATIC = 10
+N_STATIC = 15
 N_DYNAMIC = 10
 N_TASKS = 15
 CLOSED_LOOP_HORIZON = 10    # horizon used when RECEDING_HORIZON = True
 OPEN_LOOP_HORIZON = 70      # horizon used when RECEDING_HORIZON = False (must cover a full segment)
-MAX_STEPS = 2000
+MAX_STEPS = 1000
 
 if __name__ == "__main__":
     for seed in SEED:
-        env, solve_times, dataset = run_episode(seed=seed, max_steps=MAX_STEPS, horizon=CLOSED_LOOP_HORIZON, record_data=True, n_static=N_STATIC, n_dynamic=N_DYNAMIC, n_tasks=N_TASKS)
+        print(f"Running episode with seed={seed}, n_static={N_STATIC}, n_dynamic={N_DYNAMIC}, n_tasks={N_TASKS}")
+        env, solve_times, dataset = run_episode(seed=seed, max_steps=MAX_STEPS, horizon=CLOSED_LOOP_HORIZON, record_data=True, n_static=N_STATIC, 
+                                                n_dynamic=N_DYNAMIC, n_tasks=N_TASKS, optimizer="de", warm_start=True)
         plot_trajectory(env, save_path=f"traj/episode_trajectory_{seed}_{N_TASKS}_{N_DYNAMIC}_{N_STATIC}.png",seed=seed)
-        save_dataset(dataset, path=f"data_traj/path_{seed}_{N_TASKS}_{N_DYNAMIC}_{N_STATIC}.npz")
+        if len(env.skipped_log) == 0:
+            save_dataset(dataset, path=f"data_traj/path_{seed}_{N_TASKS}_{N_DYNAMIC}_{N_STATIC}.npz")

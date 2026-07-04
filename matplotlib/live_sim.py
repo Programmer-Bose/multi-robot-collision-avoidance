@@ -17,6 +17,8 @@ Run:
 Edit the CONFIG block below to change settings.
 """
 
+from turtle import mode
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -26,13 +28,15 @@ from de_mpc import DEMPCPlanner
 
 # ----------------------------- CONFIG -----------------------------
 RECEDING_HORIZON = True     # <-- TOGGLE THIS: True = replan every step, False = single-shot DE
-SEED = 222
-N_STATIC = 5
-N_DYNAMIC = 5
-N_TASKS = 5
+SEED = 42
+N_STATIC = 15
+N_DYNAMIC = 10
+N_TASKS = 15
 CLOSED_LOOP_HORIZON = 10    # horizon used when RECEDING_HORIZON = True
 OPEN_LOOP_HORIZON = 70      # horizon used when RECEDING_HORIZON = False (must cover a full segment)
 MAX_STEPS = 2000
+OPTIMIZER = "de" 
+WARM_START = True
 # --------------------------------------------------------------------
 
 
@@ -42,7 +46,7 @@ def build_env_and_planner():
     horizon = CLOSED_LOOP_HORIZON if RECEDING_HORIZON else OPEN_LOOP_HORIZON
     planner = DEMPCPlanner(horizon=horizon, dt=env.dt, v_max=2.5,
                             omega_max=env.robot.omega_max, robot_radius=env.robot.radius,
-                            seed=SEED)
+                            seed=SEED, optimizer=OPTIMIZER, warm_start=WARM_START)
     return env, planner
 
 
@@ -62,7 +66,7 @@ class LiveSim:
         self.ax.set_ylim(ymin, ymax)
         self.ax.set_aspect("equal")
         mode = "RECEDING HORIZON (replan every step)" if RECEDING_HORIZON else "OPEN-LOOP (single DE solve per segment)"
-        self.ax.set_title(f"DE-MPC live | {mode}")
+        self.ax.set_title(f"DE-MPC live | {mode} | optimizer={OPTIMIZER}")
 
         self.ax.plot(self.env.start[0], self.env.start[1], "ks", markersize=10, label="Depot")
         for i, tp in enumerate(self.env.task_points):
