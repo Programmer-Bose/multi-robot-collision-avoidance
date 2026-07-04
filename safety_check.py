@@ -15,7 +15,7 @@ def main(n_seeds=5, max_steps=600, horizon=10):
     results = []
     for seed in range(n_seeds):
         print(f"\n=== Seed {seed} ===")
-        env, solve_times = run_episode(seed=seed, max_steps=max_steps,
+        env, solve_times, _ = run_episode(seed=seed, max_steps=max_steps,
                                         horizon=horizon, verbose=True)
         collided, kind = env.check_collision()
         success = env.all_tasks_done() and not collided

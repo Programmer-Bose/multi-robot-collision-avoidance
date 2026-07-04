@@ -6,10 +6,12 @@ import matplotlib.pyplot as plt
 
 from env import make_default_scenario
 from de_mpc import DEMPCPlanner
+from rangefinder import simulate_rangefinder
 
 
-def run_episode(seed=1, max_steps=400, horizon=10, verbose=True):
-    env = make_default_scenario(seed=seed, n_static=4, n_dynamic=3, n_tasks=4)
+def run_episode(seed=1, max_steps=400, horizon=10, verbose=True,
+                 n_rays=15, sensor_range=5.0, record_data=False,n_static=4, n_dynamic=3, n_tasks=4):
+    env = make_default_scenario(seed=seed, n_static=n_static, n_dynamic=n_dynamic, n_tasks=n_tasks)
     obs = env.reset()
 
     planner = DEMPCPlanner(horizon=horizon, dt=env.dt, v_max=env.robot.v_max,
@@ -17,6 +19,7 @@ def run_episode(seed=1, max_steps=400, horizon=10, verbose=True):
                             robot_radius=env.robot.radius, seed=seed)
 
     solve_times = []
+    dataset = []  # only populated if record_data=True
     for step in range(max_steps):
         t0 = time.time()
         # first solve is cold (more iterations), subsequent solves are warm-started (fewer)
@@ -29,12 +32,31 @@ def run_episode(seed=1, max_steps=400, horizon=10, verbose=True):
         )
         solve_times.append(time.time() - t0)
 
+        if record_data:
+            ranges = simulate_rangefinder(
+                robot_state=tuple(obs["robot_state"]),
+                static_obstacles=obs["static_obstacles"],
+                dynamic_obstacles=obs["dynamic_obstacles"],
+                world_bounds=env.world_bounds,
+                n_rays=n_rays, max_range=sensor_range,
+            )
+            rx, ry, rtheta = obs["robot_state"]
+            gx, gy = obs["goal"]
+            goal_dist = float(np.hypot(gx - rx, gy - ry))
+            goal_bearing = float((np.arctan2(gy - ry, gx - rx) - rtheta + np.pi) % (2 * np.pi) - np.pi)
+            dataset.append({
+                "step": step,
+                "robot_state": np.array([rx, ry, rtheta], dtype=float),
+                "goal_dist": goal_dist,
+                "goal_bearing": goal_bearing,
+                "ranges": ranges,               # (n_rays,)
+                "action": np.array([v0, omega0], dtype=float),
+            })
+
         obs, done, info = env.step(v0, omega0)
 
         if verbose and info["reached_goal"]:
-            print(f"[step {step}] reached task {obs['n_tasks_completed']}/{obs['n_tasks_total']}")
-        if verbose and info["skipped_task"]:
-            print(f"[step {step}] task timed out -> requeued for later attempt")
+            print(f"[step {step}] reached goal -> now targeting goal_idx={obs['goal_idx']}")
         if info["collided"]:
             print(f"[step {step}] COLLISION ({info['collision_kind']})")
             break
@@ -46,10 +68,27 @@ def run_episode(seed=1, max_steps=400, horizon=10, verbose=True):
 
     print(f"Total steps: {step+1} | avg solve time: {np.mean(solve_times):.3f}s "
           f"(first: {solve_times[0]:.3f}s, mean after warm-start: {np.mean(solve_times[1:]):.3f}s)")
-    return env, solve_times
+    return env, solve_times, dataset
 
 
-def plot_trajectory(env, save_path="episode_trajectory.png"):
+def save_dataset(dataset, path="demo_data.npz"):
+    """Pack a list of per-step dicts (from run_episode with record_data=True)
+    into flat arrays and save to a single .npz file."""
+    if not dataset:
+        print("Empty dataset, nothing saved.")
+        return
+    np.savez(
+        path,
+        robot_state=np.stack([d["robot_state"] for d in dataset]),
+        goal_dist=np.array([d["goal_dist"] for d in dataset]),
+        goal_bearing=np.array([d["goal_bearing"] for d in dataset]),
+        ranges=np.stack([d["ranges"] for d in dataset]),
+        action=np.stack([d["action"] for d in dataset]),
+    )
+    print(f"Saved {len(dataset)} timesteps to {path}")
+
+
+def plot_trajectory(env, save_path="traj/episode_trajectory.png"):
     fig, ax = plt.subplots(figsize=(7, 7))
     xmin, xmax, ymin, ymax = env.world_bounds
     ax.set_xlim(xmin, xmax)
@@ -79,11 +118,19 @@ def plot_trajectory(env, save_path="episode_trajectory.png"):
 
     ax.plot(traj[-1, 0], traj[-1, 1], "bo", markersize=8, label="Robot (final)")
     ax.legend(loc="upper right", fontsize=8)
-    ax.set_title(f"DE-MPC single-robot trajectory (seed={1})")
+    ax.set_title(f"DE-MPC single-robot trajectory (seed={SEED})")
     plt.savefig(save_path, dpi=130)
     print("Saved:", save_path)
 
+SEED = [42,23,71,254,321]
+N_STATIC = 8
+N_DYNAMIC = 4
+N_TASKS = 5
+CLOSED_LOOP_HORIZON = 10    # horizon used when RECEDING_HORIZON = True
+OPEN_LOOP_HORIZON = 70      # horizon used when RECEDING_HORIZON = False (must cover a full segment)
+MAX_STEPS = 1000
 
 if __name__ == "__main__":
-    env, solve_times = run_episode(seed=1, max_steps=400, horizon=10)
+    env, solve_times, dataset = run_episode(seed=SEED, max_steps=MAX_STEPS, horizon=CLOSED_LOOP_HORIZON, record_data=True, n_static=N_STATIC, n_dynamic=N_DYNAMIC, n_tasks=N_TASKS)
     plot_trajectory(env)
+    save_dataset(dataset, path=f"{SEED}_{N_TASKS}.npz")
