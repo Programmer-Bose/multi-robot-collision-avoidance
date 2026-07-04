@@ -11,10 +11,10 @@ from rangefinder import simulate_rangefinder
 
 def run_episode(seed=1, max_steps=400, horizon=10, verbose=True,
                  n_rays=15, sensor_range=5.0, record_data=False,n_static=4, n_dynamic=3, n_tasks=4):
-    env = make_default_scenario(seed=seed, n_static=n_static, n_dynamic=n_dynamic, n_tasks=n_tasks)
+    env = make_default_scenario(seed=seed, n_static=n_static, n_dynamic=n_dynamic, n_tasks=n_tasks, omega_max=np.pi, v_max=2.0)
     obs = env.reset()
 
-    planner = DEMPCPlanner(horizon=horizon, dt=env.dt, v_max=env.robot.v_max,
+    planner = DEMPCPlanner(horizon=horizon, dt=env.dt, v_max=2.5,
                             omega_max=env.robot.omega_max,
                             robot_radius=env.robot.radius, seed=seed)
 
@@ -88,7 +88,7 @@ def save_dataset(dataset, path="demo_data.npz"):
     print(f"Saved {len(dataset)} timesteps to {path}")
 
 
-def plot_trajectory(env, save_path="traj/episode_trajectory.png"):
+def plot_trajectory(env, save_path="traj/episode_trajectory.png",seed=42):
     fig, ax = plt.subplots(figsize=(7, 7))
     xmin, xmax, ymin, ymax = env.world_bounds
     ax.set_xlim(xmin, xmax)
@@ -118,19 +118,21 @@ def plot_trajectory(env, save_path="traj/episode_trajectory.png"):
 
     ax.plot(traj[-1, 0], traj[-1, 1], "bo", markersize=8, label="Robot (final)")
     ax.legend(loc="upper right", fontsize=8)
-    ax.set_title(f"DE-MPC single-robot trajectory (seed={SEED})")
+    ax.set_title(f"DE-MPC single-robot trajectory_{seed}")
     plt.savefig(save_path, dpi=130)
     print("Saved:", save_path)
 
-SEED = [42,23,71,254,321]
-N_STATIC = 8
-N_DYNAMIC = 4
-N_TASKS = 5
+SEED = [321, 666]
+# SEED = [23]
+N_STATIC = 10
+N_DYNAMIC = 10
+N_TASKS = 15
 CLOSED_LOOP_HORIZON = 10    # horizon used when RECEDING_HORIZON = True
 OPEN_LOOP_HORIZON = 70      # horizon used when RECEDING_HORIZON = False (must cover a full segment)
-MAX_STEPS = 1000
+MAX_STEPS = 2000
 
 if __name__ == "__main__":
-    env, solve_times, dataset = run_episode(seed=SEED, max_steps=MAX_STEPS, horizon=CLOSED_LOOP_HORIZON, record_data=True, n_static=N_STATIC, n_dynamic=N_DYNAMIC, n_tasks=N_TASKS)
-    plot_trajectory(env)
-    save_dataset(dataset, path=f"{SEED}_{N_TASKS}.npz")
+    for seed in SEED:
+        env, solve_times, dataset = run_episode(seed=seed, max_steps=MAX_STEPS, horizon=CLOSED_LOOP_HORIZON, record_data=True, n_static=N_STATIC, n_dynamic=N_DYNAMIC, n_tasks=N_TASKS)
+        plot_trajectory(env, save_path=f"traj/episode_trajectory_{seed}_{N_TASKS}_{N_DYNAMIC}_{N_STATIC}.png",seed=seed)
+        save_dataset(dataset, path=f"data_traj/path_{seed}_{N_TASKS}_{N_DYNAMIC}_{N_STATIC}.npz")

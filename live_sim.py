@@ -26,13 +26,13 @@ from de_mpc import DEMPCPlanner
 
 # ----------------------------- CONFIG -----------------------------
 RECEDING_HORIZON = True     # <-- TOGGLE THIS: True = replan every step, False = single-shot DE
-SEED = 42
-N_STATIC = 8
-N_DYNAMIC = 4
+SEED = 456
+N_STATIC = 5
+N_DYNAMIC = 5
 N_TASKS = 5
 CLOSED_LOOP_HORIZON = 10    # horizon used when RECEDING_HORIZON = True
 OPEN_LOOP_HORIZON = 70      # horizon used when RECEDING_HORIZON = False (must cover a full segment)
-MAX_STEPS = 1000
+MAX_STEPS = 2000
 # --------------------------------------------------------------------
 
 
@@ -40,7 +40,7 @@ def build_env_and_planner():
     env = make_default_scenario(seed=SEED, n_static=N_STATIC, n_dynamic=N_DYNAMIC, n_tasks=N_TASKS, omega_max=np.pi)
     env.reset()
     horizon = CLOSED_LOOP_HORIZON if RECEDING_HORIZON else OPEN_LOOP_HORIZON
-    planner = DEMPCPlanner(horizon=horizon, dt=env.dt, v_max=env.robot.v_max,
+    planner = DEMPCPlanner(horizon=horizon, dt=env.dt, v_max=2.5,
                             omega_max=env.robot.omega_max, robot_radius=env.robot.radius,
                             seed=SEED)
     return env, planner
