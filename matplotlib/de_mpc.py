@@ -173,6 +173,9 @@ class DEMPCPlanner:
         bounds = [(v_lo, self.v_max), (-self.omega_max, self.omega_max)] * self.H
         # print(f"[planner] using optimizer={self.optimizer}")
 
+        zero_controls = np.zeros(self.H * 2)
+        before_cost = self._fitness(zero_controls, x0, y0, theta0, goal, static_obstacles, dyn_preds)
+
         if self.optimizer == "de":
             controls, fun = self._plan_de(bounds, x0, y0, theta0, goal, static_obstacles, dyn_preds)
         elif self.optimizer == "cem":
@@ -182,6 +185,7 @@ class DEMPCPlanner:
         else:
             raise ValueError(self.optimizer)
 
+        print(f"[DE] before (zero controls) cost = {before_cost:.3f} | after (DE) cost = {fun:.3f}")
         self.prev_solution = controls if self.warm_start else None
         return controls[0], controls, fun
     def _plan_de(self, bounds, x0, y0, theta0, goal, static_obstacles, dyn_preds):

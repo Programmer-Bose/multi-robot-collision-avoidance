@@ -14,11 +14,11 @@ def patch_planner_optimizer(optimizer_name):
 
 results = {}
 for opt in OPTIMIZERS:
-    patch_planner_optimizer(opt)
+    # patch_planner_optimizer(opt)
     rows = []
     for seed in SEEDS:
         print(f"Running {opt} with seed {seed}")
-        env, solve_times, _ = run_episode(seed=seed, max_steps=600, horizon=10, verbose=False, optimizer=opt)
+        env, solve_times, _ = run_episode(seed=seed,n_tasks=4, n_static=4, n_dynamic=4, max_steps=600, horizon=10, verbose=False, optimizer=opt)
         collided, kind = env.check_collision()
         rows.append({
             "seed": seed,

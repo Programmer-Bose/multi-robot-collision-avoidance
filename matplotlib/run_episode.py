@@ -132,14 +132,14 @@ def plot_trajectory(env, save_path="traj/episode_trajectory.png",seed=42):
     plt.savefig(save_path, dpi=130)
     print("Saved:", save_path)
 
-SEED = [42,51,33,24,321,6,2004,1005,2022,5001]
+SEED = [25,35,45,55,66]
 # SEED = [23]
 N_STATIC = 15
 N_DYNAMIC = 10
 N_TASKS = 15
 CLOSED_LOOP_HORIZON = 10    # horizon used when RECEDING_HORIZON = True
 OPEN_LOOP_HORIZON = 70      # horizon used when RECEDING_HORIZON = False (must cover a full segment)
-MAX_STEPS = 1000
+MAX_STEPS = 1500
 
 if __name__ == "__main__":
     for seed in SEED:

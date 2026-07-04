@@ -307,7 +307,7 @@ def make_default_scenario(seed=0, n_static=4, n_dynamic=3, n_tasks=4,
     static_obstacles = []
     while len(static_obstacles) < n_static:
         p = rng.uniform([xmin + 1, ymin + 1], [xmax - 1, ymax - 1])
-        r = rng.uniform(0.3, 0.6)
+        r = rng.uniform(0.4, 0.6)
         if np.linalg.norm(p - start[:2]) > 1.2 and all(
             np.linalg.norm(p - tp) > 1.0 for tp in task_points
         ):
@@ -318,7 +318,7 @@ def make_default_scenario(seed=0, n_static=4, n_dynamic=3, n_tasks=4,
         p = rng.uniform([xmin + 1, ymin + 1], [xmax - 1, ymax - 1])
         v = rng.uniform(-0.6, 0.6, size=2)
         dynamic_obstacles.append(
-            DynamicObstacle(p[0], p[1], radius=0.25, vx=v[0], vy=v[1],
+            DynamicObstacle(p[0], p[1], radius=0.35, vx=v[0], vy=v[1],
                              bounds=world, rng=rng)
         )
 
