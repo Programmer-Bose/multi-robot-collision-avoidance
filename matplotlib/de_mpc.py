@@ -55,7 +55,7 @@ class DEMPCPlanner:
     def __init__(self, horizon=10, dt=0.1, v_max=1.0, omega_max=np.pi / 2,
                  robot_radius=0.15, d_safe_static=0.3, d_safe_dynamic=0.4,
                  w_goal=3.0, w_terminal=8.0, w_collision=250.0, w_smooth=0.5,
-                 w_heading=2.0, w_reverse=1.0,
+                 w_heading=2.0, w_reverse=3.0,
                  popsize=15, maxiter=40, optimizer="de", warm_start=True, seed=None):
         self.H = horizon
         self.dt = dt
@@ -81,8 +81,8 @@ class DEMPCPlanner:
         self.H_max = horizon * 3
         self.stuck_window = 45
         self.goal_progress_thresh = 0.3     # min reduction in goal-distance required over window
-        self.horizon_growth_step = 5
-        self.clear_streak_needed = 2        # consecutive clear checks before shrinking back
+        self.horizon_growth_step = 10
+        self.clear_streak_needed = 4        # consecutive clear checks before shrinking back
         self._clear_streak = 0
 
         self.recent_goal_dists = []         # (goal_tuple, dist) history
@@ -205,7 +205,7 @@ class DEMPCPlanner:
         x0, y0, theta0 = robot_state
         self.update_history(x0, y0, goal)
 
-        consideration_radius = 2.0  # e.g. only score obstacles within this of current robot position
+        consideration_radius = 1.5  # e.g. only score obstacles within this of current robot position
         relevant_static = [o for o in static_obstacles
                    if np.hypot(x0 - o[0], y0 - o[1]) < consideration_radius]
 
