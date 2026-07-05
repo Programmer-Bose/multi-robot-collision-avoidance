@@ -101,10 +101,10 @@ class DynamicObstacle:
 
 class SingleRobotEnv:
     # --- new tunables (add to __init__ signature or set as defaults) ---
-    STALL_CHECK_INTERVAL = 40   # steps between progress checks
+    STALL_CHECK_INTERVAL = 20   # steps between progress checks
     STALL_EPS = 0.05            # min distance-to-goal improvement required per interval
-    MAX_RETRIES = 8              # retries allowed before a task is skipped
-    COOLDOWN_STEPS = 60          # steps a skipped task waits before being retry-eligible
+    MAX_RETRIES = 3              # retries allowed before a task is skipped
+    COOLDOWN_STEPS = 30          # steps a skipped task waits before being retry-eligible
 
     def __init__(self, start, task_points, static_obstacles, dynamic_obstacles,
                  dt=0.1, goal_radius=0.25, world_bounds=(0, 10, 0, 10),
@@ -318,7 +318,7 @@ def make_default_scenario(seed=0, n_static=4, n_dynamic=3, n_tasks=4,
         p = rng.uniform([xmin + 1, ymin + 1], [xmax - 1, ymax - 1])
         v = rng.uniform(-0.6, 0.6, size=2)
         dynamic_obstacles.append(
-            DynamicObstacle(p[0], p[1], radius=0.35, vx=v[0], vy=v[1],
+            DynamicObstacle(p[0], p[1], radius=0.3, vx=v[0], vy=v[1],
                              bounds=world, rng=rng)
         )
 
