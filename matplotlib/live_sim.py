@@ -29,8 +29,8 @@ from narrow_passage_scenario import make_narrow_passage_scenario
 
 # ----------------------------- CONFIG -----------------------------
 RECEDING_HORIZON = True     # <-- TOGGLE THIS: True = replan every step, False = single-shot DE
-SEED = 6
-N_STATIC = 20
+SEED = 1
+N_STATIC = 10
 N_DYNAMIC = 5
 N_TASKS = 15
 CLOSED_LOOP_HORIZON = 10    # horizon used when RECEDING_HORIZON = True

@@ -157,18 +157,30 @@ class DEMPCPlanner:
             + self.w_heading * heading_cost
             + self.w_reverse * reverse_cost)
 
-    def _reverse_threat(self, robot_state, dynamic_obstacles,
-                     threat_radius=1.2, closing_speed_thresh=0.05):
-        """True if a dynamic obstacle is close AND moving toward the robot."""
+    def _reverse_threat(self, robot_state, dynamic_obstacles, static_obstacles=None,
+                 threat_radius=1.2, closing_speed_thresh=0.05,
+                 static_threat_radius=0.5):
+        """True if a dynamic obstacle is close AND moving toward the robot,
+        OR a static obstacle is within static_threat_radius (already tight
+        enough that backing off is the safer option than turning-in-place)."""
         rx, ry, _ = robot_state
+
         for (ox, oy, orad, vx, vy) in dynamic_obstacles:
             dx, dy = rx - ox, ry - oy
             dist = np.hypot(dx, dy)
             if dist < threat_radius + orad:
                 dir_to_robot = np.array([dx, dy]) / (dist + 1e-6)
-                closing_speed = np.dot([vx, vy], dir_to_robot)  # + = obstacle heading toward robot
+                closing_speed = np.dot([vx, vy], dir_to_robot)
                 if closing_speed > closing_speed_thresh:
                     return True
+
+        if static_obstacles:
+            for (ox, oy, orad) in static_obstacles:
+                dist = np.hypot(rx - ox, ry - oy)
+                margin = self.d_safe_static + orad + self.robot_radius
+                if dist < margin + static_threat_radius:
+                    return True
+
         return False
 
     def _init_population(self, bounds):
@@ -193,6 +205,10 @@ class DEMPCPlanner:
         x0, y0, theta0 = robot_state
         self.update_history(x0, y0, goal)
 
+        consideration_radius = 2.0  # e.g. only score obstacles within this of current robot position
+        relevant_static = [o for o in static_obstacles
+                   if np.hypot(x0 - o[0], y0 - o[1]) < consideration_radius]
+
         if self._is_stuck():
             self._clear_streak = 0
             new_H = min(self.H + self.horizon_growth_step, self.H_max)
@@ -210,7 +226,7 @@ class DEMPCPlanner:
                     self._clear_streak = 0
 
         dyn_preds = predict_dynamic_obstacles(dynamic_obstacles, self.H, self.dt)
-        allow_reverse = self._reverse_threat(robot_state, dynamic_obstacles)
+        allow_reverse = self._reverse_threat(robot_state, dynamic_obstacles, relevant_static)
         v_lo = -self.v_max if allow_reverse else 0.0
         bounds = [(v_lo, self.v_max), (-self.omega_max, self.omega_max)] * self.H
         # print(f"[planner] using optimizer={self.optimizer}")
