@@ -77,16 +77,40 @@ class DEMPCPlanner:
         self.recent_positions = []   # list of (x, y), capped length
         self.recent_cap = 50         # how many real steps of history to remember
         self.w_explore = 15.0        # tune this
+        self.H_base = horizon
+        self.H_max = horizon * 3
+        self.stuck_window = 30
+        self.goal_progress_thresh = 0.3     # min reduction in goal-distance required over window
+        self.horizon_growth_step = 5
+        self.clear_streak_needed = 2        # consecutive clear checks before shrinking back
+        self._clear_streak = 0
+
+        self.recent_goal_dists = []         # (goal_tuple, dist) history
+        self._last_goal = None
         self.rng = np.random.default_rng(seed)
 
         # self.bounds = [(0.0, v_max), (-omega_max, omega_max)] * self.H
         self.bounds = [(-0.3 * v_max, v_max), (-omega_max, omega_max)] * self.H
         self.prev_solution = None  # (H,2) array, warm start
 
-    def update_history(self, x, y):
-        self.recent_positions.append((x, y))
-        if len(self.recent_positions) > self.recent_cap:
-            self.recent_positions.pop(0)
+    def _is_stuck(self):
+        if len(self.recent_goal_dists) < self.stuck_window:
+            return False
+        window = self.recent_goal_dists[-self.stuck_window:]
+        # has the robot gotten meaningfully closer than it was window-ago?
+        improvement = window[0] - window[-1]
+        return improvement < self.goal_progress_thresh
+    
+    def update_history(self, x, y, goal):
+        dist = np.hypot(goal[0] - x, goal[1] - y)
+        if goal != self._last_goal:
+            # new task/goal -> old history is meaningless, start fresh
+            self.recent_goal_dists = []
+            self._last_goal = goal
+            self._clear_streak = 0
+        self.recent_goal_dists.append(dist)
+        if len(self.recent_goal_dists) > self.recent_cap:
+            self.recent_goal_dists.pop(0)
 
     def _fitness(self, flat_controls, x0, y0, theta0, goal, static_obs, dyn_preds):
         controls = flat_controls.reshape(self.H, 2)
@@ -167,6 +191,24 @@ class DEMPCPlanner:
 
     def plan(self, robot_state, goal, static_obstacles, dynamic_obstacles):
         x0, y0, theta0 = robot_state
+        self.update_history(x0, y0, goal)
+
+        if self._is_stuck():
+            self._clear_streak = 0
+            new_H = min(self.H + self.horizon_growth_step, self.H_max)
+            if new_H != self.H:
+                print(f"[planner] deadlock suspected -> horizon {self.H} -> {new_H}")
+                self.H = new_H
+                self.prev_solution = None
+        else:
+            if self.H != self.H_base:
+                self._clear_streak += 1
+                if self._clear_streak >= self.clear_streak_needed:
+                    print(f"[planner] clear of deadlock -> horizon back to {self.H_base}")
+                    self.H = self.H_base
+                    self.prev_solution = None
+                    self._clear_streak = 0
+
         dyn_preds = predict_dynamic_obstacles(dynamic_obstacles, self.H, self.dt)
         allow_reverse = self._reverse_threat(robot_state, dynamic_obstacles)
         v_lo = -self.v_max if allow_reverse else 0.0

@@ -28,10 +28,10 @@ from de_mpc import DEMPCPlanner
 
 # ----------------------------- CONFIG -----------------------------
 RECEDING_HORIZON = True     # <-- TOGGLE THIS: True = replan every step, False = single-shot DE
-SEED = 666
-N_STATIC = 15
-N_DYNAMIC = 8
-N_TASKS = 10
+SEED = 6
+N_STATIC = 20
+N_DYNAMIC = 5
+N_TASKS = 15
 CLOSED_LOOP_HORIZON = 10    # horizon used when RECEDING_HORIZON = True
 OPEN_LOOP_HORIZON = 70      # horizon used when RECEDING_HORIZON = False (must cover a full segment)
 MAX_STEPS = 2000
