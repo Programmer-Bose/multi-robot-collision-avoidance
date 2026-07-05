@@ -25,6 +25,7 @@ import matplotlib.animation as animation
 
 from env import make_default_scenario
 from de_mpc import DEMPCPlanner
+from narrow_passage_scenario import make_narrow_passage_scenario
 
 # ----------------------------- CONFIG -----------------------------
 RECEDING_HORIZON = True     # <-- TOGGLE THIS: True = replan every step, False = single-shot DE
@@ -43,6 +44,8 @@ WARM_START = True
 def build_env_and_planner():
     env = make_default_scenario(seed=SEED, n_static=N_STATIC, n_dynamic=N_DYNAMIC, n_tasks=N_TASKS, omega_max=np.pi)
     env.reset()
+    # env = make_narrow_passage_scenario(gap_width=0.5, robot_radius=0.15, seed=SEED)
+    # env.reset()
     horizon = CLOSED_LOOP_HORIZON if RECEDING_HORIZON else OPEN_LOOP_HORIZON
     planner = DEMPCPlanner(horizon=horizon, dt=env.dt, v_max=2.5,
                             omega_max=env.robot.omega_max, robot_radius=env.robot.radius,

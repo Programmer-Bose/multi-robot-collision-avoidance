@@ -54,7 +54,7 @@ def predict_dynamic_obstacles(dynamic_obstacles, H, dt):
 class DEMPCPlanner:
     def __init__(self, horizon=10, dt=0.1, v_max=1.0, omega_max=np.pi / 2,
                  robot_radius=0.15, d_safe_static=0.3, d_safe_dynamic=0.4,
-                 w_goal=3.0, w_terminal=8.0, w_collision=250.0, w_smooth=0.5,
+                 w_goal=5.0, w_terminal=8.0, w_collision=250.0, w_smooth=0.5,
                  w_heading=2.0, w_reverse=1.0,
                  popsize=15, maxiter=40, optimizer="de", warm_start=True, seed=None):
         self.H = horizon
