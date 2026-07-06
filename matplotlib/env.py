@@ -65,7 +65,7 @@ class DynamicObstacle:
     the planner's (simpler) prediction model.
     """
 
-    def __init__(self, x, y, radius, vx, vy, v_max=0.6, noise_std=0.15,
+    def __init__(self, x, y, radius, vx, vy, v_max=0.2, noise_std=0.01,
                  bounds=None, rng=None):
         self.x, self.y, self.radius = x, y, radius
         self.vx, self.vy = vx, vy
@@ -286,6 +286,10 @@ def order_tasks_nearest_neighbor(start_xy, task_points):
     # rotate so the first visited point is the one nearest the start
     dists = [np.linalg.norm(start - p) for p in ordered]
     first_idx = int(np.argmin(dists))
+    #print the full task order as index
+    task_indices = [i for i, p in enumerate(task_points) if any(np.allclose(p, op) for op in ordered)]
+    print(f"Task order (indices): {task_indices}")
+
     # print(f"Task ordering: start={start} -> nearest task={ordered[first_idx]} (idx={first_idx})")
     return ordered[first_idx:] + ordered[:first_idx]
 
@@ -307,7 +311,7 @@ def make_default_scenario(seed=0, n_static=4, n_dynamic=3, n_tasks=4,
     static_obstacles = []
     while len(static_obstacles) < n_static:
         p = rng.uniform([xmin + 1, ymin + 1], [xmax - 1, ymax - 1])
-        r = rng.uniform(0.2, 0.4)
+        r = rng.uniform(0.4, 0.6)
         if np.linalg.norm(p - start[:2]) > 1.2 and all(
             np.linalg.norm(p - tp) > 1.0 for tp in task_points
         ):
@@ -316,6 +320,7 @@ def make_default_scenario(seed=0, n_static=4, n_dynamic=3, n_tasks=4,
     dynamic_obstacles = []
     for _ in range(n_dynamic):
         p = rng.uniform([xmin + 1, ymin + 1], [xmax - 1, ymax - 1])
+        # v = rng.uniform(-0.4, 0.4, size=2)
         v = rng.uniform(-0.4, 0.4, size=2)
         dynamic_obstacles.append(
             DynamicObstacle(p[0], p[1], radius=0.3, vx=v[0], vy=v[1],

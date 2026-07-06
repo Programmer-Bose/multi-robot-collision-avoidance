@@ -230,7 +230,7 @@ class RobotNavGymEnv(gym.Env):
 if __name__ == "__main__":
     # smoke test: random actions for a couple episodes
     env = RobotNavGymEnv(
-        scenario_kwargs=dict(n_static=4, n_dynamic=3, n_tasks=4, omega_max=np.pi),
+        scenario_kwargs=dict(seed =1,n_static=8, n_dynamic=5, n_tasks=8, omega_max=np.pi),
         max_episode_steps=200,
     )
     for ep in range(2):

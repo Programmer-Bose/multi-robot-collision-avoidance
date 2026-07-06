@@ -71,9 +71,9 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--render", action="store_true", help="Show the environment window")
     parser.add_argument("--max_episode_steps", type=int, default=400)
-    parser.add_argument("--n_static", type=int, default=4)
-    parser.add_argument("--n_dynamic", type=int, default=3)
-    parser.add_argument("--n_tasks", type=int, default=4)
+    parser.add_argument("--n_static", type=int, default=8)
+    parser.add_argument("--n_dynamic", type=int, default=5)
+    parser.add_argument("--n_tasks", type=int, default=8)
     return parser.parse_args()
 
 
