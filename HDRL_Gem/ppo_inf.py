@@ -15,7 +15,7 @@ def get_latest_model(models_dir="./models/"):
 
 def run_inference():
     print("Loading Environment...")
-    env = BezierUAVEnv(json_path="maps/env_map_config_021.json")
+    env = BezierUAVEnv(json_path="maps/env_map_config_023.json")
     
     try:
         model_path = get_latest_model()

@@ -72,7 +72,7 @@ def get_latest_model(models_dir="./models/"):
 
 def train(hp):
     print("Initializing Environment...")
-    env = BezierUAVEnv(json_path="maps/env_map_config_021.json")
+    env = BezierUAVEnv(json_path="maps/env_map_config_019.json")
     
     latest_model_path = get_latest_model()
     save_callback = EpisodeSaveCallback(save_freq_episodes=hp["save_freq_episodes"], save_path="./models/")
@@ -122,7 +122,7 @@ if __name__ == "__main__":
         "gamma": 0.99,
         "ent_coef": 0.01,
         "total_timesteps": 200000,
-        "save_freq_episodes": 10000,
+        "save_freq_episodes": 50000,
         "features_dim": 256,
         "pi_arch": [256, 256],
         "vf_arch": [256, 256],
