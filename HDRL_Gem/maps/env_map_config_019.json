@@ -1,0 +1,191 @@
+{
+    "map_metadata": {
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 19,
+        "num_tasks": 2
+    },
+    "start_position": [
+        110,
+        269
+    ],
+    "goal_position": [
+        109,
+        310
+    ],
+    "task_points": {
+        "1": [
+            556,
+            187
+        ],
+        "2": [
+            541,
+            414
+        ]
+    },
+    "task_sequence": [
+        1,
+        2
+    ],
+    "obstacles": [
+        {
+            "type": "rectangle",
+            "position": [
+                263,
+                239
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                264,
+                320
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                258,
+                167
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                263,
+                397
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                260,
+                462
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "square",
+            "position": [
+                299,
+                144
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                362,
+                146
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                440,
+                149
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                396,
+                152
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                330,
+                147
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                299,
+                322
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                365,
+                321
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                465,
+                315
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                417,
+                323
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                286,
+                477
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                349,
+                474
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                434,
+                466
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                390,
+                479
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                473,
+                463
+            ],
+            "size": 40
+        }
+    ]
+}
