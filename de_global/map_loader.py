@@ -142,4 +142,4 @@ def load_and_plot_map(json_path="env_map_config.json"):
     plt.show()
 
 if __name__ == "__main__":
-    load_and_plot_map("maps/env_map_config_029.json")
+    load_and_plot_map("maps/env_map_config_011.json")

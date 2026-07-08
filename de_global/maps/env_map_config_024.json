@@ -1,0 +1,243 @@
+{
+    "map_metadata": {
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 24,
+        "num_tasks": 3
+    },
+    "start_position": [
+        119,
+        375
+    ],
+    "goal_position": [
+        118,
+        415
+    ],
+    "task_points": {
+        "1": [
+            472,
+            283
+        ],
+        "2": [
+            491,
+            420
+        ],
+        "3": [
+            112,
+            737
+        ]
+    },
+    "task_sequence": [
+        1,
+        2,
+        3
+    ],
+    "obstacles": [
+        {
+            "type": "rectangle",
+            "position": [
+                171,
+                179
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                173,
+                295
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                175,
+                398
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                174,
+                480
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "circle",
+            "position": [
+                28,
+                24
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                738,
+                28
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                749,
+                754
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                22,
+                740
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                393,
+                761
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                368,
+                16
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                179,
+                11
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                555,
+                19
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                584,
+                744
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                178,
+                757
+            ],
+            "radius": 40
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                221,
+                326
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                282,
+                338
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                365,
+                333
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                450,
+                340
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                552,
+                340
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                583,
+                375
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                591,
+                492
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                591,
+                575
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "circle",
+            "position": [
+                257,
+                643
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                268,
+                568
+            ],
+            "radius": 40
+        }
+    ]
+}

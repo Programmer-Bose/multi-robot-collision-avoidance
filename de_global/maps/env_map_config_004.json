@@ -1,0 +1,64 @@
+{
+    "map_metadata": {
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 4,
+        "num_tasks": 1
+    },
+    "start_position": [
+        382,
+        480
+    ],
+    "goal_position": [
+        245,
+        481
+    ],
+    "task_points": {
+        "1": [
+            362,
+            333
+        ]
+    },
+    "task_sequence": [
+        1
+    ],
+    "obstacles": [
+        {
+            "type": "u_shape",
+            "position": [
+                362,
+                351
+            ],
+            "size": 120,
+            "thickness": 20
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                305,
+                482
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                451,
+                275
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "circle",
+            "position": [
+                287,
+                421
+            ],
+            "radius": 40
+        }
+    ]
+}
