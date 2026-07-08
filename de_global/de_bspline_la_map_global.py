@@ -6,7 +6,6 @@ from shapely.geometry import Polygon, Point
 from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon as MplPolygon, Circle
-from shapely.geometry import LineString
 import time
 import json
 import os
@@ -19,7 +18,7 @@ import datetime
 # --- B-spline shape ---
 N_CONTROL_PER_SEGMENT = 6          # number of FREE (interior) B-spline control points per segment
 BSPLINE_DEGREE = 3                 # cubic B-spline
-N_SAMPLES_PER_SEGMENT = 40         # samples drawn along each segment's curve
+N_SAMPLES_PER_SEGMENT = 50         # samples drawn along each segment's curve
 N_VARS_PER_SEGMENT = N_CONTROL_PER_SEGMENT * 2
 
 # --- Map / world scaling ---
@@ -33,7 +32,6 @@ W_LENGTH = 1.0
 W_COLLISION = 800.0
 W_CURVATURE = 0.5
 W_BOUNDARY = 800.0                  # penalty weight for leaving the [0,12]x[0,12] arena (same order as collision)
-W_INTRUSION_GRADIENT = 0.05
 
 # --- Population-size decay across generations (per-segment) ---
 # The DE run for each segment is split into POPSIZE_DECAY_STAGES stages of
@@ -191,24 +189,29 @@ def segment_curve_from_deltas(flat_deltas, seg_start, seg_end):
 # ----------------------------------------------------------------------
 
 def collision_penalty(curve):
-    path_line = LineString(curve)
-    swept_path = path_line.buffer(ROBOT_RADIUS)  # the actual area the robot's body sweeps
+    xs = curve[:, 0]
+    ys = curve[:, 1]
+    pts = shapely.points(xs, ys)
 
-    collided = False
-    intrusion_sum = 0.0
+    penalty = 0.0
     for obstacle in OBSTACLES:
         if obstacle["type"] == "circle":
             cx, cy = obstacle["center"]
             r = obstacle["radius"]
-            obs_geom = Point(cx, cy).buffer(r)
+            d = np.hypot(xs - cx, ys - cy)
+            safe_r = r + ROBOT_RADIUS
+            intrusion = np.clip(safe_r - d, 0, None)
         else:
-            obs_geom = obstacle["shape"]
-
-        if swept_path.intersects(obs_geom):
-            collided = True
-            intrusion_sum += swept_path.intersection(obs_geom).area
-
-    return (1.0 if collided else 0.0) + W_INTRUSION_GRADIENT * intrusion_sum
+            poly = obstacle["shape"]
+            d = shapely.distance(pts, poly)
+            inside = shapely.contains(poly, pts)
+            boundary_d = shapely.boundary(poly)
+            d_to_boundary = shapely.distance(pts, boundary_d)
+            outside_intrusion = np.clip(ROBOT_RADIUS - d, 0, None)
+            inside_intrusion = ROBOT_RADIUS + d_to_boundary
+            intrusion = np.where(inside, inside_intrusion, outside_intrusion)
+        penalty += np.sum(intrusion ** 2)
+    return penalty
 
 def boundary_penalty(curve):
     """High penalty for any curve sample that leaves the [0,12] x [0,12]
@@ -581,4 +584,4 @@ def run_planner(input_map_json, output_path_json=None):
 
 if __name__ == "__main__":
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_planner("maps/env_map_config_004.json", f"solves/planned_path_{timestamp}.json")
+    run_planner("maps/env_map_config_012.json", f"solves/planned_path_{timestamp}.json")

@@ -1,0 +1,103 @@
+Good instinct — the current fallback (`np.random.uniform(-1.0, 1.0, ...)`) samples each control-point coordinate independently, 
+so most random individuals end up as noisy near-straight-line squiggles, not genuine "go around left" vs "go around right" detours. 
+That's why the population collapses onto whichever weak local basin it stumbles into first.
+
+Replace the random-fill branch in `build_warm_start_population` with a **fanned-out initializer** for segment 0 (no warm start), 
+so the population starts with curves bulging in many distinct directions perpendicular to the baseline:
+
+```python
+def build_fanned_out_population(n_individuals, n_vars, seg_start, seg_end):
+    """Used only when there's no previous-segment solution to warm-start
+    from. Instead of unstructured per-coordinate noise, generate individuals
+    whose control points are pushed out perpendicular to the segment
+    baseline by varying angle/magnitude, so the initial population already
+    covers 'go around left', 'go around right', 'bulge up', 'bulge down'
+    etc. rather than converging on whichever direction the noise happens
+    to average toward first."""
+    seg_vec = seg_end - seg_start
+    seg_len = np.linalg.norm(seg_vec) + 1e-9
+    direction = seg_vec / seg_len
+    perp = np.array([-direction[1], direction[0]])  # perpendicular to baseline
+
+    population = []
+    n_fans = min(n_individuals, 16)  # number of distinct sweep directions
+    for i in range(n_individuals):
+        fan_idx = i % n_fans
+        angle_frac = fan_idx / n_fans          # 0..1 around the circle
+        sign = 1.0 if angle_frac < 0.5 else -1.0
+        magnitude = FAN_OUT_MAGNITUDE_FRACTION * seg_len * (0.3 + angle_frac)
+
+        individual = np.zeros(n_vars)
+        for cp in range(N_CONTROL_PER_SEGMENT):
+            # every control point in this individual pushed the same way,
+            # so the whole curve bulges coherently instead of wiggling
+            individual[cp * 2: cp * 2 + 2] = sign * magnitude * perp
+
+        individual += np.random.normal(0.0, FAN_OUT_NOISE_STD, size=n_vars)
+        population.append(individual)
+
+    return np.array(population)
+```
+
+Then in `build_warm_start_population`, swap the random-fill loop:
+
+```python
+    while len(population) < n_seeded + n_random:
+        population.append(np.random.uniform(-1.0, 1.0, size=n_vars))
+```
+
+for:
+
+```python
+    if n_random > 0:
+        fanned = build_fanned_out_population(n_random, n_vars, seg_start, seg_end)
+        population.extend(list(fanned))
+```
+
+(you'll need to pass `seg_start, seg_end` into `build_warm_start_population` — it doesn't currently receive them.)
+
+Add the two new knobs to the hyperparameter block:
+
+```python
+FAN_OUT_MAGNITUDE_FRACTION = 0.6   # how far (as a fraction of segment length) the fanned bulges push out
+FAN_OUT_NOISE_STD = 0.3            # small jitter on top of each fan direction
+```
+
+This directly targets your hypothesis: segment 0's initial population will contain genuinely different detour directions (left-around, right-around, over, under) 
+rather than all starting near the straight line and getting trapped by the first obstacle they touch. Warm-started segments (1, 2, ...) 
+keep using the previous-segment-seeded population as before — this only replaces the *unseeded* portion.
+
+
+
+#--------------------------
+Weighting segment 2 more wouldn't actually fix this — the physics (obstacles, robot radius) are identical for every segment, so a segment-specific weight is a band-aid that could break other maps. The real bug: your collision check is discrete-point sampling, so a corner/notch can be **clipped between two sample points** and register as zero collision even though the continuous curve passes through solid obstacle — exactly like the seam issue from before, just at a corner this time.
+
+Fix collision detection at the geometry level instead of per-point, so no sampling gap can ever hide a violation:
+
+```python
+from shapely.geometry import LineString
+
+def collision_penalty(curve):
+    path_line = LineString(curve)
+    swept_path = path_line.buffer(ROBOT_RADIUS)  # the actual area the robot's body sweeps
+
+    collided = False
+    intrusion_sum = 0.0
+    for obstacle in OBSTACLES:
+        if obstacle["type"] == "circle":
+            cx, cy = obstacle["center"]
+            r = obstacle["radius"]
+            obs_geom = Point(cx, cy).buffer(r)
+        else:
+            obs_geom = obstacle["shape"]
+
+        if swept_path.intersects(obs_geom):
+            collided = True
+            intrusion_sum += swept_path.intersection(obs_geom).area
+
+    return (1.0 if collided else 0.0) + W_INTRUSION_GRADIENT * intrusion_sum
+```
+
+This buffers the **continuous curve** (not just sample points) by the robot radius and checks true polygon/circle intersection — a corner clip or thin seam can no longer slip through undetected regardless of `N_SAMPLES_PER_SEGMENT`. Since it's geometry-based rather than point-based, it applies uniformly and correctly to every segment without needing per-segment weight hacks.
+
+One cost note: `intersection.area` on many-obstacle scenes is heavier than the old vectorized point-distance approach — fine for this problem size, but worth knowing if segment count grows a lot.
