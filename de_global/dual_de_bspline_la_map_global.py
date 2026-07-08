@@ -16,6 +16,13 @@ from shapely.geometry import LineString
 # 0. HYPERPARAMETERS (all tunable knobs live here)
 # ----------------------------------------------------------------------
 
+# --- Optimization variable mode ---
+# "delta"  : DE evolves offsets (deltas) added to a straight-line baseline
+#            of control points (original behavior).
+# "direct" : DE evolves the absolute (x, y) coordinates of the control
+#            points themselves, with bounds fixed to the arena bounds.
+CONTROL_POINT_MODE = "direct"   # "delta" or "direct"
+
 # --- B-spline shape ---
 N_CONTROL_PER_SEGMENT = 6          # number of FREE (interior) B-spline control points per segment
 BSPLINE_DEGREE = 3                 # cubic B-spline
@@ -39,9 +46,9 @@ W_INTRUSION_GRADIENT = 0.05   # small continuous nudge so DE can "feel" its way 
 # roughly equal generation count. popsize shrinks geometrically from
 # DE_POPSIZE_INITIAL down to DE_POPSIZE_FINAL across the stages, carrying the
 # fittest individuals of each stage forward as the next stage's warm start.
-DE_POPSIZE_INITIAL = 50
-DE_POPSIZE_FINAL = 25
-DE_POPSIZE_DECAY_STAGES = 1         # number of shrink steps (1 = no decay, uses DE_POPSIZE_INITIAL throughout)
+DE_POPSIZE_INITIAL = 100
+DE_POPSIZE_FINAL = 50
+DE_POPSIZE_DECAY_STAGES = 5         # number of shrink steps (1 = no decay, uses DE_POPSIZE_INITIAL throughout)
 
 # --- Warm starting (population seeding across segments) ---
 WARM_START_FRACTION = 0.5           # fraction of the new population seeded from previous best solution
@@ -181,12 +188,27 @@ def baseline_control_points(seg_start, seg_end):
     )
     return np.array([seg_start + t * segment_vec for t in t_values])
 
-def delta_to_control_points(flat_deltas, seg_start, seg_end):
-    deltas = flat_deltas.reshape(N_CONTROL_PER_SEGMENT, 2)
-    return baseline_control_points(seg_start, seg_end) + deltas
+def vars_to_control_points(flat_vars, seg_start, seg_end):
+    """Maps the raw DE decision vector to the N_CONTROL_PER_SEGMENT free
+    (interior) control points, according to CONTROL_POINT_MODE.
 
-def segment_curve_from_deltas(flat_deltas, seg_start, seg_end):
-    free_points = delta_to_control_points(flat_deltas, seg_start, seg_end)
+    - "delta"  : flat_vars are OFFSETS added to the straight-line baseline.
+    - "direct" : flat_vars ARE the absolute (x, y) control point coordinates.
+    """
+    points = flat_vars.reshape(N_CONTROL_PER_SEGMENT, 2)
+    if CONTROL_POINT_MODE == "delta":
+        return baseline_control_points(seg_start, seg_end) + points
+    elif CONTROL_POINT_MODE == "direct":
+        return points
+    else:
+        raise ValueError(f"Unknown CONTROL_POINT_MODE: {CONTROL_POINT_MODE}")
+
+# Backwards-compatible alias (old name used throughout the original script)
+def delta_to_control_points(flat_deltas, seg_start, seg_end):
+    return vars_to_control_points(flat_deltas, seg_start, seg_end)
+
+def segment_curve_from_deltas(flat_vars, seg_start, seg_end):
+    free_points = vars_to_control_points(flat_vars, seg_start, seg_end)
     control_points = np.vstack([seg_start, free_points, seg_end])
     return bspline_curve(control_points, N_SAMPLES_PER_SEGMENT)
 
@@ -195,50 +217,49 @@ def segment_curve_from_deltas(flat_deltas, seg_start, seg_end):
 # ----------------------------------------------------------------------
 
 # def collision_penalty(curve):
-#     xs = curve[:, 0]
-#     ys = curve[:, 1]
-#     pts = shapely.points(xs, ys)
+#     path_line = LineString(curve)
+#     swept_path = path_line.buffer(ROBOT_RADIUS)  # the actual area the robot's body sweeps
 
-#     penalty = 0.0
+#     collided = False
+#     intrusion_sum = 0.0
 #     for obstacle in OBSTACLES:
 #         if obstacle["type"] == "circle":
 #             cx, cy = obstacle["center"]
 #             r = obstacle["radius"]
-#             d = np.hypot(xs - cx, ys - cy)
-#             safe_r = r + ROBOT_RADIUS
-#             intrusion = np.clip(safe_r - d, 0, None)
+#             obs_geom = Point(cx, cy).buffer(r)
 #         else:
-#             poly = obstacle["shape"]
-#             d = shapely.distance(pts, poly)
-#             inside = shapely.contains(poly, pts)
-#             boundary_d = shapely.boundary(poly)
-#             d_to_boundary = shapely.distance(pts, boundary_d)
-#             outside_intrusion = np.clip(ROBOT_RADIUS - d, 0, None)
-#             inside_intrusion = ROBOT_RADIUS + d_to_boundary
-#             intrusion = np.where(inside, inside_intrusion, outside_intrusion)
-#         penalty += np.sum(intrusion ** 2)
-#     return penalty
+#             obs_geom = obstacle["shape"]
 
+#         if swept_path.intersects(obs_geom):
+#             collided = True
+#             intrusion_sum += swept_path.intersection(obs_geom).area
+
+#     return (1.0 if collided else 0.0) + W_INTRUSION_GRADIENT * intrusion_sum
 
 def collision_penalty(curve):
-    path_line = LineString(curve)
-    swept_path = path_line.buffer(ROBOT_RADIUS)  # the actual area the robot's body sweeps
+    xs = curve[:, 0]
+    ys = curve[:, 1]
+    pts = shapely.points(xs, ys)
 
-    collided = False
-    intrusion_sum = 0.0
+    penalty = 0.0
     for obstacle in OBSTACLES:
         if obstacle["type"] == "circle":
             cx, cy = obstacle["center"]
             r = obstacle["radius"]
-            obs_geom = Point(cx, cy).buffer(r)
+            d = np.hypot(xs - cx, ys - cy)
+            safe_r = r + ROBOT_RADIUS
+            intrusion = np.clip(safe_r - d, 0, None)
         else:
-            obs_geom = obstacle["shape"]
-
-        if swept_path.intersects(obs_geom):
-            collided = True
-            intrusion_sum += swept_path.intersection(obs_geom).area
-
-    return (1.0 if collided else 0.0) + W_INTRUSION_GRADIENT * intrusion_sum
+            poly = obstacle["shape"]
+            d = shapely.distance(pts, poly)
+            inside = shapely.contains(poly, pts)
+            boundary_d = shapely.boundary(poly)
+            d_to_boundary = shapely.distance(pts, boundary_d)
+            outside_intrusion = np.clip(ROBOT_RADIUS - d, 0, None)
+            inside_intrusion = ROBOT_RADIUS + d_to_boundary
+            intrusion = np.where(inside, inside_intrusion, outside_intrusion)
+        penalty += np.sum(intrusion ** 2)
+    return penalty
 
 def boundary_penalty(curve):
     """High penalty for any curve sample that leaves the [0,12] x [0,12]
@@ -263,8 +284,8 @@ def curvature_penalty(curve):
     cos_angle = np.clip(np.sum(v1 * v2, axis=1) / (n1 * n2), -1.0, 1.0)
     return np.sum(np.arccos(cos_angle) ** 2)
 
-def segment_cost_function(flat_deltas, seg_start, seg_end):
-    curve = segment_curve_from_deltas(flat_deltas, seg_start, seg_end)
+def segment_cost_function(flat_vars, seg_start, seg_end):
+    curve = segment_curve_from_deltas(flat_vars, seg_start, seg_end)
     cost = 0.0
     cost += W_LENGTH * path_length(curve)
     cost += W_COLLISION * collision_penalty(curve)
@@ -287,6 +308,7 @@ def export_all_segments_control_points(segment_records, filename=None):
 
     payload = {
         "map_name": CURRENT_MAP_NAME,
+        "control_point_mode": CONTROL_POINT_MODE,
         "num_segments": len(segment_records),
         "segments": segment_records,
     }
@@ -300,15 +322,32 @@ def export_all_segments_control_points(segment_records, filename=None):
 # ----------------------------------------------------------------------
 
 def build_delta_bounds(seg_start, seg_end):
-    segment_length = np.linalg.norm(seg_end - seg_start)
-    delta_bound = max(5, 0.8 * segment_length)
-    return [(-delta_bound, delta_bound) for _ in range(N_VARS_PER_SEGMENT)]
+    """Bounds for the DE decision vector, dependent on CONTROL_POINT_MODE.
+
+    - "delta"  : symmetric offset bounds around 0, scaled to segment length
+                 (original behavior).
+    - "direct" : each free control point coordinate is bounded by the arena
+                 bounds [BOUNDS_MIN, BOUNDS_MAX] directly, since the
+                 variables ARE the absolute coordinates.
+    """
+    if CONTROL_POINT_MODE == "delta":
+        segment_length = np.linalg.norm(seg_end - seg_start)
+        delta_bound = max(5, 0.8 * segment_length)
+        return [(-delta_bound, delta_bound) for _ in range(N_VARS_PER_SEGMENT)]
+    elif CONTROL_POINT_MODE == "direct":
+        bounds = []
+        for _ in range(N_CONTROL_PER_SEGMENT):
+            bounds.append((BOUNDS_MIN[0], BOUNDS_MAX[0]))  # x
+            bounds.append((BOUNDS_MIN[1], BOUNDS_MAX[1]))  # y
+        return bounds
+    else:
+        raise ValueError(f"Unknown CONTROL_POINT_MODE: {CONTROL_POINT_MODE}")
 
 def build_warm_start_population(prev_best_x, popsize, n_vars, seg_start, seg_end):
     """Warm-start methodology preserved from the original script: seed a
     fraction of the new population from the previous best solution (from the
     first segment, or from the immediately preceding segment), jittered with
-    Gaussian noise; fill the remainder randomly."""
+    Gaussian noise; fill the remainder randomly / fanned-out."""
     n_individuals = popsize * n_vars
     n_seeded = int(n_individuals * WARM_START_FRACTION)
     n_random = n_individuals - n_seeded
@@ -333,11 +372,19 @@ def build_fanned_out_population(n_individuals, n_vars, seg_start, seg_end):
     baseline by varying angle/magnitude, so the initial population already
     covers 'go around left', 'go around right', 'bulge up', 'bulge down'
     etc. rather than converging on whichever direction the noise happens
-    to average toward first."""
+    to average toward first.
+
+    In "delta" mode the fan is expressed directly as offsets from 0.
+    In "direct" mode the same fan pattern is expressed as an offset added
+    to the straight-line baseline control points, so the population still
+    spans absolute coordinates that are valid (and clipped to bounds).
+    """
     seg_vec = seg_end - seg_start
     seg_len = np.linalg.norm(seg_vec) + 1e-9
     direction = seg_vec / seg_len
     perp = np.array([-direction[1], direction[0]])  # perpendicular to baseline
+
+    base = baseline_control_points(seg_start, seg_end) if CONTROL_POINT_MODE == "direct" else None
 
     population = []
     n_fans = min(n_individuals, 16)  # number of distinct sweep directions
@@ -347,13 +394,22 @@ def build_fanned_out_population(n_individuals, n_vars, seg_start, seg_end):
         sign = 1.0 if angle_frac < 0.5 else -1.0
         magnitude = FAN_OUT_MAGNITUDE_FRACTION * seg_len * (0.3 + angle_frac)
 
-        individual = np.zeros(n_vars)
+        offset = np.zeros((N_CONTROL_PER_SEGMENT, 2))
         for cp in range(N_CONTROL_PER_SEGMENT):
             # every control point in this individual pushed the same way,
             # so the whole curve bulges coherently instead of wiggling
-            individual[cp * 2: cp * 2 + 2] = sign * magnitude * perp
+            offset[cp] = sign * magnitude * perp
 
-        individual += np.random.normal(0.0, FAN_OUT_NOISE_STD, size=n_vars)
+        offset += np.random.normal(0.0, FAN_OUT_NOISE_STD, size=(N_CONTROL_PER_SEGMENT, 2))
+
+        if CONTROL_POINT_MODE == "direct":
+            individual_pts = base + offset
+            individual_pts[:, 0] = np.clip(individual_pts[:, 0], BOUNDS_MIN[0], BOUNDS_MAX[0])
+            individual_pts[:, 1] = np.clip(individual_pts[:, 1], BOUNDS_MIN[1], BOUNDS_MAX[1])
+            individual = individual_pts.flatten()
+        else:
+            individual = offset.flatten()
+
         population.append(individual)
 
     return np.array(population)
@@ -424,7 +480,7 @@ class LivePlotManager:
         self.ax.set_ylim(BOUNDS_MIN[1], BOUNDS_MAX[1])
         self.ax.set_aspect("equal")
         self.ax.grid(alpha=0.3)
-        self.title_artist = self.ax.set_title("Live optimization - starting...")
+        self.title_artist = self.ax.set_title(f"Live optimization - starting... [mode={CONTROL_POINT_MODE}]")
         plt.tight_layout()
         plt.show(block=False)
         plt.pause(LIVE_PLOT_PAUSE)
@@ -440,7 +496,7 @@ class LivePlotManager:
             self.segment_lines[seg_idx].set_color("red")
 
         self.title_artist.set_text(
-            f"Segment {seg_idx + 1}/{N_SEGMENTS} | gen {generation} | popsize {popsize} | cost={cost:.3f}"
+            f"[{CONTROL_POINT_MODE}] Segment {seg_idx + 1}/{N_SEGMENTS} | gen {generation} | popsize {popsize} | cost={cost:.3f}"
         )
         self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
@@ -463,7 +519,7 @@ class LivePlotManager:
     def finish(self, total_cost):
         if not self.enabled:
             return
-        self.title_artist.set_text(f"Sequential DE over B-Spline Control-Point Deltas (cost={total_cost:.3f})")
+        self.title_artist.set_text(f"Sequential DE over B-Spline Control Points [{CONTROL_POINT_MODE}] (cost={total_cost:.3f})")
         self.fig.canvas.draw_idle()
         plt.ioff()
 
@@ -525,11 +581,12 @@ def solve_sequential():
         final_curve = segment_curve_from_deltas(result.x, seg_start, seg_end)
         live_plot.freeze_segment(seg, final_curve, segment_colors[seg])
 
-        free_points = delta_to_control_points(result.x, seg_start, seg_end)
+        free_points = vars_to_control_points(result.x, seg_start, seg_end)
         segment_records.append({
             "segment_index": seg,
             "generation": gen_counter["n"],
             "cost": float(result.fun),
+            "control_point_mode": CONTROL_POINT_MODE,
             "start_point": seg_start.tolist(),
             "end_point": seg_end.tolist(),
             "control_points": free_points.tolist(),  # exactly N_CONTROL_PER_SEGMENT (6) points
@@ -568,6 +625,7 @@ def export_path(curves, filename="planned_path.json"):
     path_data = {
         "metadata": {
             "map_name": CURRENT_MAP_NAME,
+            "control_point_mode": CONTROL_POINT_MODE,
             "num_segments": len(curves),
             "samples_per_segment": N_SAMPLES_PER_SEGMENT
         },
@@ -606,12 +664,12 @@ def plot_result(delta_vectors, total_cost):
     ax.set_xlim(BOUNDS_MIN[0], BOUNDS_MAX[0])
     ax.set_ylim(BOUNDS_MIN[1], BOUNDS_MAX[1])
     ax.set_aspect("equal")
-    ax.set_title(f"Sequential DE over B-Spline Control-Point Deltas (cost={total_cost:.3f})")
+    ax.set_title(f"Sequential DE over B-Spline Control Points [{CONTROL_POINT_MODE}] (cost={total_cost:.3f})")
     ax.grid(alpha=0.3)
     plt.tight_layout()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     os.makedirs("solves", exist_ok=True)
-    outpath = f"solves/de_bspline_output_{timestamp}.png"
+    outpath = f"solves/de_bspline_output_{CONTROL_POINT_MODE}_{timestamp}.png"
     plt.savefig(outpath, dpi=150)
     print(f"Saved plot to {outpath}")
 
@@ -619,15 +677,21 @@ def plot_result(delta_vectors, total_cost):
 # 8. Main Execution
 # ----------------------------------------------------------------------
 
-def run_planner(input_map_json, output_path_json=None):
+def run_planner(input_map_json, output_path_json=None, control_point_mode=None):
+    """control_point_mode: optionally override CONTROL_POINT_MODE ("delta"
+    or "direct") for this run without editing the global constant."""
+    global CONTROL_POINT_MODE
+    if control_point_mode is not None:
+        CONTROL_POINT_MODE = control_point_mode
+
     print(f"Loading map configuration from: {input_map_json}")
     load_map_config(input_map_json)
 
     if output_path_json is None:
         os.makedirs("solves", exist_ok=True)
-        output_path_json = f"solves/planned_path_{CURRENT_MAP_NAME}.json"
+        output_path_json = f"solves/planned_path_{CURRENT_MAP_NAME}_{CONTROL_POINT_MODE}.json"
 
-    print("Running sequential per-segment DE over B-spline control-point deltas...")
+    print(f"Running sequential per-segment DE over B-spline control points [mode={CONTROL_POINT_MODE}]...")
     start_time = time.perf_counter()
     delta_vectors, total_cost, live_plot = solve_sequential()
     end_time = time.perf_counter()
@@ -644,4 +708,7 @@ def run_planner(input_map_json, output_path_json=None):
 
 if __name__ == "__main__":
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_planner("maps/env_map_config_024.json", f"solves/planned_path_{timestamp}.json")
+    # Switch mode here, or pass control_point_mode="direct" / "delta" to run_planner
+    run_planner("maps/env_map_config_024.json",
+                f"solves/planned_path_{timestamp}.json",
+                control_point_mode=CONTROL_POINT_MODE)

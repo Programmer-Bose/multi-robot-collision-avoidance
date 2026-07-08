@@ -1,0 +1,335 @@
+{
+    "map_metadata": {
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 34,
+        "num_tasks": 1
+    },
+    "start_position": [
+        588,
+        635
+    ],
+    "goal_position": [
+        188,
+        439
+    ],
+    "task_points": {
+        "1": [
+            178,
+            201
+        ]
+    },
+    "task_sequence": [
+        1
+    ],
+    "obstacles": [
+        {
+            "type": "rectangle",
+            "position": [
+                146,
+                118
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                246,
+                118
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                350,
+                115
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                453,
+                115
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                539,
+                115
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                633,
+                116
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                124,
+                210
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                128,
+                282
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                124,
+                404
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                120,
+                490
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                134,
+                588
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                126,
+                349
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                128,
+                670
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                660,
+                192
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                660,
+                316
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                669,
+                437
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                662,
+                527
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                659,
+                658
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                141,
+                716
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                245,
+                726
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                368,
+                733
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                496,
+                736
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                598,
+                719
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                667,
+                377
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                668,
+                583
+            ],
+            "width": 50,
+            "height": 100
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                157,
+                374
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                239,
+                376
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                340,
+                386
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                414,
+                386
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                631,
+                551
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                546,
+                555
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                427,
+                568
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                319,
+                574
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                485,
+                559
+            ],
+            "width": 100,
+            "height": 50
+        }
+    ]
+}
