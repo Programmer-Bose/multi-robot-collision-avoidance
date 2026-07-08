@@ -1,0 +1,240 @@
+{
+    "map_metadata": {
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 23,
+        "num_tasks": 5
+    },
+    "start_position": [
+        132,
+        235
+    ],
+    "goal_position": [
+        137,
+        282
+    ],
+    "task_points": {
+        "1": [
+            602,
+            53
+        ],
+        "2": [
+            236,
+            626
+        ],
+        "3": [
+            718,
+            697
+        ],
+        "4": [
+            298,
+            56
+        ],
+        "5": [
+            530,
+            471
+        ]
+    },
+    "task_sequence": [
+        4,
+        1,
+        5,
+        3,
+        2
+    ],
+    "obstacles": [
+        {
+            "type": "rectangle",
+            "position": [
+                467,
+                461
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                462,
+                382
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "square",
+            "position": [
+                256,
+                96
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                294,
+                93
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                325,
+                94
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                556,
+                89
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                550,
+                48
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                552,
+                11
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                500,
+                372
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                531,
+                365
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                676,
+                745
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                676,
+                712
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                675,
+                661
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                668,
+                607
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                174,
+                564
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                214,
+                562
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                263,
+                564
+            ],
+            "size": 40
+        },
+        {
+            "type": "square",
+            "position": [
+                300,
+                563
+            ],
+            "size": 40
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                309,
+                622
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                310,
+                680
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                185,
+                196
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                179,
+                246
+            ],
+            "width": 30,
+            "height": 60
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                185,
+                306
+            ],
+            "width": 30,
+            "height": 60
+        }
+    ]
+}

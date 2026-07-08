@@ -1,0 +1,103 @@
+{
+    "map_metadata": {
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 7,
+        "num_tasks": 4
+    },
+    "start_position": [
+        180,
+        481
+    ],
+    "goal_position": [
+        99,
+        484
+    ],
+    "task_points": {
+        "1": [
+            272,
+            276
+        ],
+        "2": [
+            458,
+            412
+        ],
+        "3": [
+            574,
+            263
+        ],
+        "4": [
+            419,
+            523
+        ]
+    },
+    "task_sequence": [
+        1,
+        2,
+        3,
+        4
+    ],
+    "obstacles": [
+        {
+            "type": "circle",
+            "position": [
+                212,
+                332
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                251,
+                396
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                291,
+                448
+            ],
+            "radius": 40
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                375,
+                244
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                370,
+                294
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "u_shape",
+            "position": [
+                577,
+                273
+            ],
+            "size": 120,
+            "thickness": 20
+        },
+        {
+            "type": "circle",
+            "position": [
+                503,
+                477
+            ],
+            "radius": 40
+        }
+    ]
+}

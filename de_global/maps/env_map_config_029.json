@@ -1,0 +1,271 @@
+{
+    "map_metadata": {
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 29,
+        "num_tasks": 2
+    },
+    "start_position": [
+        231,
+        104
+    ],
+    "goal_position": [
+        263,
+        98
+    ],
+    "task_points": {
+        "1": [
+            382,
+            400
+        ],
+        "2": [
+            285,
+            541
+        ]
+    },
+    "task_sequence": [
+        1,
+        2
+    ],
+    "obstacles": [
+        {
+            "type": "rectangle",
+            "position": [
+                68,
+                185
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                166,
+                179
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                260,
+                183
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                335,
+                190
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                435,
+                193
+            ],
+            "width": 100,
+            "height": 50
+        },
+        {
+            "type": "circle",
+            "position": [
+                183,
+                449
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                240,
+                414
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                302,
+                371
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                350,
+                338
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                311,
+                430
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                359,
+                485
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                391,
+                539
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                437,
+                583
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                153,
+                718
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                218,
+                695
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                275,
+                656
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                494,
+                579
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                574,
+                570
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                699,
+                555
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                755,
+                541
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                182,
+                581
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                526,
+                456
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                523,
+                390
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                684,
+                188
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                689,
+                121
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                656,
+                53
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                698,
+                400
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                652,
+                690
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                368,
+                747
+            ],
+            "radius": 40
+        }
+    ]
+}

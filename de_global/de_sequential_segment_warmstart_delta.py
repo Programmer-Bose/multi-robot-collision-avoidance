@@ -29,7 +29,7 @@ WAYPOINTS = [
     np.array([0.0, 0.0]),    # start
     np.array([4.0, 6.5]),    # task point 1
     np.array([9.5, 2.0]),    # task point 2
-    np.array([13.5, 5.5]), 
+    np.array([10.5, 5.5]), 
     np.array([8.1, 5.0]),
     np.array([6.0, -1.0]),
     np.array([0.0, 0.0]),    # start

@@ -1,0 +1,193 @@
+{
+    "map_metadata": {
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 18,
+        "num_tasks": 3
+    },
+    "start_position": [
+        193,
+        481
+    ],
+    "goal_position": [
+        191,
+        482
+    ],
+    "task_points": {
+        "1": [
+            336,
+            308
+        ],
+        "2": [
+            483,
+            199
+        ],
+        "3": [
+            558,
+            357
+        ]
+    },
+    "task_sequence": [
+        1,
+        2,
+        3
+    ],
+    "obstacles": [
+        {
+            "type": "circle",
+            "position": [
+                398,
+                267
+            ],
+            "radius": 25
+        },
+        {
+            "type": "circle",
+            "position": [
+                401,
+                314
+            ],
+            "radius": 25
+        },
+        {
+            "type": "circle",
+            "position": [
+                393,
+                366
+            ],
+            "radius": 25
+        },
+        {
+            "type": "circle",
+            "position": [
+                366,
+                411
+            ],
+            "radius": 25
+        },
+        {
+            "type": "circle",
+            "position": [
+                324,
+                457
+            ],
+            "radius": 25
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                476,
+                346
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                509,
+                320
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                531,
+                285
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                551,
+                259
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                593,
+                237
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                375,
+                182
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                380,
+                219
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                302,
+                429
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                249,
+                432
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "rectangle",
+            "position": [
+                192,
+                435
+            ],
+            "width": 60,
+            "height": 30
+        },
+        {
+            "type": "circle",
+            "position": [
+                427,
+                431
+            ],
+            "radius": 25
+        },
+        {
+            "type": "circle",
+            "position": [
+                429,
+                494
+            ],
+            "radius": 25
+        },
+        {
+            "type": "circle",
+            "position": [
+                430,
+                536
+            ],
+            "radius": 25
+        }
+    ]
+}
