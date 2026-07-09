@@ -75,6 +75,30 @@ FAN_OUT_NOISE_STD = 0.3            # small jitter on top of each fan direction
 EARLY_TERMINATE_AFTER_FIRST_SEGMENT = False  # if True, stop the whole solve once segment 0 converges
 CONTROL_POINTS_OUTPUT_DIR = "solves"         # combined all-segments control-point JSON is written here
 
+# --- Manually-verified control-point library (cold-start seeding) ---
+# Each entry is a path to a JSON file saved in the same format as
+# export_all_segments_control_points() -> {"segments": [{"control_points": [...]}, ...]}.
+# All segments from all listed files are pooled together into one library;
+# there is NO matching to the new map's geometry -- individuals are drawn
+# from this pool at random and jittered. Add/remove paths freely.
+CONTROL_POINT_LIBRARY_FILES = [
+    "solves\manual\env_map_config_004_manual_control_points_20260709_100009.json",
+    "solves\manual\env_map_config_011_manual_control_points_20260709_100507.json",
+    "solves\manual\env_map_config_012_manual_control_points_20260709_100900.json",
+    "solves\manual\env_map_config_024_manual_control_points_20260709_101230.json",
+    "solves\manual\env_map_config_029_manual_control_points_20260709_101704.json",
+    "solves\manual\env_map_config_030_manual_control_points_20260709_102018.json",
+    "solves\manual\env_map_config_031_manual_control_points_20260709_102134.json",
+    "solves\manual\env_map_config_032_manual_control_points_20260709_102431.json",
+    "solves\manual\env_map_config_034_manual_control_points_20260709_102808.json"
+]
+
+LIBRARY_SEEDING_ENABLED = True      # master on/off switch
+LIBRARY_JITTER_STD = 0.5            # std-dev of Gaussian noise applied to library control points
+LIBRARY_FRACTION_OF_RANDOM = 1.0    # fraction of the "unseeded" population slots filled from the
+                                     # library (rest falls back to build_fanned_out_population);
+                                     # 1.0 = library entirely replaces fan-out when library is loaded
+
 # ----------------------------------------------------------------------
 # 1. Global Problem State
 # ----------------------------------------------------------------------
@@ -83,6 +107,7 @@ WAYPOINTS = []
 OBSTACLES = []
 N_SEGMENTS = 0
 CURRENT_MAP_NAME = "unnamed_map"
+LIBRARY_SEGMENTS = []   # pooled list of flat (N_VARS_PER_SEGMENT,) absolute control-point vectors
 
 # ----------------------------------------------------------------------
 # 2. Map Loading & Coordinate Transformation
@@ -145,6 +170,51 @@ def load_map_config(json_path):
             bottom_bar = Polygon([(cx - h, cy - h), (cx + h, cy - h), (cx + h, cy - h + t_scaled), (cx - h, cy - h + t_scaled)])
             u_geom = unary_union([left_arm, right_arm, bottom_bar])
             OBSTACLES.append({"type": "polygon", "shape": u_geom})
+
+# ----------------------------------------------------------------------
+# 2b. Control-Point Library (manually-saved cold-start seeds)
+# ----------------------------------------------------------------------
+
+def add_library_path(path):
+    """Register another saved control-point JSON file in the library list."""
+    if path not in CONTROL_POINT_LIBRARY_FILES:
+        CONTROL_POINT_LIBRARY_FILES.append(path)
+
+def remove_library_path(path):
+    """Remove a JSON file path from the library list, if present."""
+    if path in CONTROL_POINT_LIBRARY_FILES:
+        CONTROL_POINT_LIBRARY_FILES.remove(path)
+
+def load_control_point_library():
+    """Reads every file in CONTROL_POINT_LIBRARY_FILES and pools all of
+    their segments' control points into LIBRARY_SEGMENTS as flat
+    (N_VARS_PER_SEGMENT,) absolute-coordinate vectors. Segments whose
+    control-point count doesn't match N_CONTROL_PER_SEGMENT are skipped
+    (shape mismatch -> can't be used as a DE seed vector).
+
+    Call this once (e.g. at the start of run_planner) after editing
+    CONTROL_POINT_LIBRARY_FILES.
+    """
+    global LIBRARY_SEGMENTS
+    LIBRARY_SEGMENTS = []
+
+    for path in CONTROL_POINT_LIBRARY_FILES:
+        if not os.path.exists(path):
+            print(f"  [library] WARNING: {path} not found, skipping.")
+            continue
+        with open(path, 'r') as f:
+            data = json.load(f)
+        for seg_record in data.get("segments", []):
+            cps = np.asarray(seg_record["control_points"], dtype=float)
+            if cps.shape != (N_CONTROL_PER_SEGMENT, 2):
+                print(f"  [library] WARNING: skipping segment in {path} "
+                      f"(expected {N_CONTROL_PER_SEGMENT} control points, got {cps.shape[0]}).")
+                continue
+            LIBRARY_SEGMENTS.append(cps.flatten())
+
+    print(f"  [library] Loaded {len(LIBRARY_SEGMENTS)} seed segment(s) "
+          f"from {len(CONTROL_POINT_LIBRARY_FILES)} file(s).")
+    return LIBRARY_SEGMENTS
 
 # ----------------------------------------------------------------------
 # 3. B-Spline Curve Construction
@@ -344,11 +414,49 @@ def build_delta_bounds(seg_start, seg_end):
     else:
         raise ValueError(f"Unknown CONTROL_POINT_MODE: {CONTROL_POINT_MODE}")
 
+def build_library_seeded_population(n_individuals, n_vars, seg_start, seg_end):
+    """Draws n_individuals from the pooled control-point library
+    (LIBRARY_SEGMENTS) at random, with replacement, and applies Gaussian
+    jitter -- no matching to seg_start/seg_end geometry, per requirement.
+
+    Library entries are stored as absolute (x, y) control-point
+    coordinates:
+    - "direct" mode: used almost as-is (jitter + clip to arena bounds).
+    - "delta" mode : converted to offsets relative to THIS segment's own
+                     straight-line baseline, since the DE vector in delta
+                     mode is an offset, not an absolute coordinate.
+    """
+    n_library = len(LIBRARY_SEGMENTS)
+    if n_library == 0:
+        return None  # caller falls back to fan-out
+
+    indices = np.random.randint(0, n_library, size=n_individuals)
+    base = baseline_control_points(seg_start, seg_end) if CONTROL_POINT_MODE == "delta" else None
+
+    population = []
+    for idx in indices:
+        seed_cps = LIBRARY_SEGMENTS[idx].reshape(N_CONTROL_PER_SEGMENT, 2).copy()
+        jitter = np.random.normal(0.0, LIBRARY_JITTER_STD, size=(N_CONTROL_PER_SEGMENT, 2))
+        seed_cps = seed_cps + jitter
+
+        if CONTROL_POINT_MODE == "direct":
+            seed_cps[:, 0] = np.clip(seed_cps[:, 0], BOUNDS_MIN[0], BOUNDS_MAX[0])
+            seed_cps[:, 1] = np.clip(seed_cps[:, 1], BOUNDS_MIN[1], BOUNDS_MAX[1])
+            individual = seed_cps.flatten()
+        else:  # "delta"
+            individual = (seed_cps - base).flatten()
+
+        population.append(individual)
+
+    return np.array(population)
+
 def build_warm_start_population(prev_best_x, popsize, n_vars, seg_start, seg_end):
     """Warm-start methodology preserved from the original script: seed a
     fraction of the new population from the previous best solution (from the
     first segment, or from the immediately preceding segment), jittered with
-    Gaussian noise; fill the remainder randomly / fanned-out."""
+    Gaussian noise; fill the remainder from the control-point library
+    (if enabled and loaded), falling back to fanned-out for any leftover
+    slots."""
     n_individuals = popsize * n_vars
     n_seeded = int(n_individuals * WARM_START_FRACTION)
     n_random = n_individuals - n_seeded
@@ -361,8 +469,22 @@ def build_warm_start_population(prev_best_x, popsize, n_vars, seg_start, seg_end
             population.append(jittered)
 
     if n_random > 0:
-        fanned = build_fanned_out_population(n_random, n_vars, seg_start, seg_end)
-        population.extend(list(fanned))
+        n_from_library = 0
+        if LIBRARY_SEEDING_ENABLED and len(LIBRARY_SEGMENTS) > 0:
+            n_from_library = int(round(n_random * LIBRARY_FRACTION_OF_RANDOM))
+
+        n_from_fanout = n_random - n_from_library
+
+        if n_from_library > 0:
+            lib_pop = build_library_seeded_population(n_from_library, n_vars, seg_start, seg_end)
+            if lib_pop is not None:
+                population.extend(list(lib_pop))
+            else:
+                n_from_fanout = n_random  # library empty after all, fall back fully
+
+        if n_from_fanout > 0:
+            fanned = build_fanned_out_population(n_from_fanout, n_vars, seg_start, seg_end)
+            population.extend(list(fanned))
 
     return np.array(population)
 
@@ -688,6 +810,8 @@ def run_planner(input_map_json, output_path_json=None, control_point_mode=None):
     print(f"Loading map configuration from: {input_map_json}")
     load_map_config(input_map_json)
 
+    load_control_point_library()
+
     if output_path_json is None:
         os.makedirs("solves", exist_ok=True)
         output_path_json = f"solves/planned_path_{CURRENT_MAP_NAME}_{CONTROL_POINT_MODE}.json"
@@ -710,6 +834,6 @@ def run_planner(input_map_json, output_path_json=None, control_point_mode=None):
 if __name__ == "__main__":
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     # Switch mode here, or pass control_point_mode="direct" / "delta" to run_planner
-    run_planner("maps/env_map_config_016.json",
+    run_planner("maps/env_map_config_027.json",
                 f"solves/planned_path_{timestamp}.json",
                 control_point_mode=CONTROL_POINT_MODE)

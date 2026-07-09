@@ -52,7 +52,7 @@ CONTROL_POINT_GRAB_RADIUS_PX = 14
 WAYPOINT_RADIUS_PX = 9
 
 # --- Live cost display (same cost formulation as the DE script) ---
-ROBOT_RADIUS = 0.3
+ROBOT_RADIUS = 0.25
 W_LENGTH = 1.0
 W_COLLISION = 800.0
 W_CURVATURE = 0.5
