@@ -36,8 +36,8 @@ from matplotlib.patches import Polygon as MplPolygon, Circle as MplCircle
 # 0. HYPERPARAMETERS / CONFIG
 # ----------------------------------------------------------------------
 
-MAP_JSON_PATH = "maps/env_map_config_034.json"   # <-- point this at your map file
-OUTPUT_DIR = "solves/manual"
+MAP_JSON_PATH = "maps/map_001_robot_3.json"   # <-- point this at your map file
+OUTPUT_DIR = "solves/multi"
 
 TARGET_SCALE = 12.0                 # world coordinate scale, same as the DE script (0-12 x 0-12)
 N_CONTROL_PER_SEGMENT = 6           # free control points per segment (matches DE script)
@@ -52,7 +52,7 @@ CONTROL_POINT_GRAB_RADIUS_PX = 14
 WAYPOINT_RADIUS_PX = 9
 
 # --- Live cost display (same cost formulation as the DE script) ---
-ROBOT_RADIUS = 0.25
+ROBOT_RADIUS = 0.15
 W_LENGTH = 1.0
 W_COLLISION = 800.0
 W_CURVATURE = 0.5
@@ -81,7 +81,8 @@ def load_map_config(json_path):
     with open(json_path, 'r') as f:
         data = json.load(f)
 
-    orig_w, orig_h = data["map_metadata"]["size"]
+    meta_key = "map_metadata" if "map_metadata" in data else "robot_metadata"
+    orig_w, orig_h = data[meta_key]["size"]
     scale_factor = TARGET_SCALE / orig_w
 
     def scale_pt(pt):
@@ -337,7 +338,7 @@ def save_everything(waypoints, obstacles, control_points_per_segment, map_name):
             "control_points": np.asarray(free_points).tolist(),
         })
 
-    json_path = os.path.join(OUTPUT_DIR, f"{map_name}_manual_control_points_{timestamp}.json")
+    json_path = os.path.join(OUTPUT_DIR, f"{map_name}_manual_control_points.json")
     with open(json_path, 'w') as f:
         json.dump({
             "map_name": map_name,

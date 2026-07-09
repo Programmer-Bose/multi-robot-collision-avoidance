@@ -710,6 +710,6 @@ def run_planner(input_map_json, output_path_json=None, control_point_mode=None):
 if __name__ == "__main__":
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     # Switch mode here, or pass control_point_mode="direct" / "delta" to run_planner
-    run_planner("maps/env_map_config_016.json",
-                f"solves/planned_path_{timestamp}.json",
+    run_planner("maps/map_001_robot_1.json",
+                f"solves/multi/planned_path_{timestamp}.json",
                 control_point_mode=CONTROL_POINT_MODE)
