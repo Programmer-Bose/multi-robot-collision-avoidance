@@ -56,6 +56,9 @@ def resolve_path_files(map_path, path_dir, max_robots):
     map_name = os.path.splitext(os.path.basename(map_path))[0]
     path_dir = path_dir if path_dir is not None else "solves"
 
+    if os.path.isfile(path_dir):
+        return [path_dir] * max_robots
+
     path_files = []
     for i in range(max_robots):
         candidates = sorted(glob.glob(os.path.join(path_dir, f"{map_name}*robot{i}*control_points*.json")))

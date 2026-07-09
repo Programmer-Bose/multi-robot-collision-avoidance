@@ -114,13 +114,13 @@ def render_robot_color(robot_idx):
 # ============================================================
 
 REWARD_WEIGHTS = {
-    "w_progress": 1.0,           # reward per unit of forward progress along path
-    "w_path_error": 0.5,         # penalty per unit lateral deviation from path
-    "w_static_collision": 50.0,  # penalty on static-obstacle collision
-    "w_robot_collision": 50.0,   # penalty on inter-robot collision
+    "w_progress": 15.0,           # reward per unit of forward progress along path
+    "w_path_error": 2.5,         # stronger penalty for lateral deviation from path
+    "w_static_collision": 500.0,  # penalty on static-obstacle collision
+    "w_robot_collision": 500.0,   # penalty on inter-robot collision
     "w_static_proximity": 2.0,   # continuous shaping term near static obstacles
     "w_robot_proximity": 2.0,    # continuous shaping term near other robots
-    "w_goal_bonus": 100.0,       # one-time bonus on reaching goal
+    "w_goal_bonus": 10.0,        # reduced goal bonus so staying on path matters more
     "w_time_penalty": 0.01,      # per-step penalty to encourage speed
     "w_smoothness": 0.1,         # penalty on angular-velocity jerk
 }

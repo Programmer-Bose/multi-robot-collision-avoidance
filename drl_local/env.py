@@ -276,6 +276,8 @@ class MultiRobotPathEnv(gym.Env):
             r = 0.0
             r += w["w_progress"] * progress_delta
             r -= w["w_path_error"] * lateral_err
+            if lateral_err < 0.15:
+                r += 0.2
             r -= w["w_time_penalty"]
 
             ang_jerk = abs(action[i][1] - self.prev_ang_vel[i])
