@@ -31,7 +31,7 @@ TARGET_SCALE = 12.0                 # world is scaled so larger map dim = 12.0 u
 BOUNDS_MIN = np.array([0.0, 0.0])
 BOUNDS_MAX = np.array([TARGET_SCALE, TARGET_SCALE])
 
-ROBOT_RADIUS = 0.3                  # robot footprint radius, world units
+ROBOT_RADIUS = 0.15                 # robot footprint radius, world units
 
 # ============================================================
 # 2. ROBOT / SWARM CONSTANTS
@@ -65,7 +65,7 @@ OBSTACLE_OBS_DIM = 4
 
 # Action: [linear_velocity_cmd, angular_velocity_cmd] normalized to [-1, 1]
 ACTION_DIM = 2
-MAX_LINEAR_VEL = 1.5                 # world units / s
+MAX_LINEAR_VEL = 2.5                 # world units / s
 MAX_ANGULAR_VEL = 2.0                # rad / s
 
 def obs_dim_for(max_robots=MAX_ROBOTS, k_obstacles=K_NEAREST_OBSTACLES):
@@ -79,7 +79,7 @@ def obs_dim_for(max_robots=MAX_ROBOTS, k_obstacles=K_NEAREST_OBSTACLES):
 # ============================================================
 
 SIM_DT = 0.1                         # seconds per env step
-MAX_EPISODE_STEPS = 500              # per-episode step cap (curriculum may override)
+MAX_EPISODE_STEPS = 1000              # per-episode step cap (curriculum may override)
 
 GOAL_REACH_RADIUS = 0.25             # world units, "reached" tolerance
 PATH_LOOKAHEAD_DIST = 0.5            # world units ahead along the path for steering target
@@ -155,16 +155,16 @@ PPO_CONFIG = {
 CURRICULUM_STAGES = [
     {
         "name": "stage1_single_robot_simple_path",
-        "map_files": ["maps/stage1_simple_a.json", "maps/stage1_simple_b.json"],
+        "map_files": ["maps/map_002_robot_1.json"],
         "n_robots_range": (1, 1),
         "enable_robot_collision": False,
         "success_rate_threshold": 0.9,
         "eval_window": 100,
-        "max_episode_steps": 300,
+        "max_episode_steps": 1000,
     },
     {
         "name": "stage2_single_robot_complex_path",
-        "map_files": ["maps/stage2_complex_a.json", "maps/stage2_complex_b.json"],
+        "map_files": ["maps/map_001_robot_1.json"],
         "n_robots_range": (1, 1),
         "enable_robot_collision": False,
         "success_rate_threshold": 0.85,
@@ -173,7 +173,7 @@ CURRICULUM_STAGES = [
     },
     {
         "name": "stage3_multi_robot_low_density",
-        "map_files": ["maps/stage3_multi_a.json"],
+        "map_files": ["maps/map_001_robot_2.json"],
         "n_robots_range": (2, 3),
         "enable_robot_collision": True,
         "success_rate_threshold": 0.8,
@@ -182,7 +182,7 @@ CURRICULUM_STAGES = [
     },
     {
         "name": "stage4_multi_robot_high_density",
-        "map_files": ["maps/stage4_multi_a.json"],
+        "map_files": ["maps/map_001_robot_3.json"],
         "n_robots_range": (3, 5),
         "enable_robot_collision": True,
         "success_rate_threshold": 0.75,
@@ -241,7 +241,11 @@ def load_map(json_path):
     with open(json_path, "r") as f:
         data = json.load(f)
 
-    orig_w, orig_h = data["map_metadata"]["size"]
+    metadata = data.get("map_metadata") or data.get("robot_metadata")
+    if metadata is None or "size" not in metadata:
+        raise KeyError(f"Map metadata with size information not found in {json_path}")
+
+    orig_w, orig_h = metadata["size"]
     scale_factor = TARGET_SCALE / orig_w
 
     start = scale_point(data["start_position"], orig_h, scale_factor)
