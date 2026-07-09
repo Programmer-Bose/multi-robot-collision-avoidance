@@ -85,6 +85,31 @@ GOAL_REACH_RADIUS = 0.25             # world units, "reached" tolerance
 PATH_LOOKAHEAD_DIST = 0.5            # world units ahead along the path for steering target
 
 # ============================================================
+# 4b. RENDERING CONSTANTS  (render_mode="human" / "rgb_array" in env.py)
+# ============================================================
+
+RENDER_SCREEN_SIZE = 800                     # pygame window is SCREEN_SIZE x SCREEN_SIZE px
+RENDER_PIXELS_PER_UNIT = RENDER_SCREEN_SIZE / TARGET_SCALE
+RENDER_FPS = 30
+RENDER_PANEL_HEIGHT = 60                     # bottom HUD strip (step count, rewards, stage)
+
+RENDER_COLOR_BG = (255, 255, 255)
+RENDER_COLOR_OBSTACLE = (200, 100, 100)
+RENDER_COLOR_PATH = (180, 180, 220)
+RENDER_COLOR_GOAL = (200, 30, 30)
+RENDER_COLOR_HUD_BG = (235, 235, 235)
+RENDER_COLOR_HUD_TEXT = (20, 20, 20)
+
+# distinct color per robot slot (cycled if n_robots > len(list))
+RENDER_ROBOT_COLORS = [
+    (30, 140, 30), (30, 90, 200), (230, 140, 20),
+    (160, 30, 160), (30, 180, 180), (140, 70, 20),
+]
+
+def render_robot_color(robot_idx):
+    return RENDER_ROBOT_COLORS[robot_idx % len(RENDER_ROBOT_COLORS)]
+
+# ============================================================
 # 5. REWARD WEIGHTS  (shared by policy_reward.py)
 # ============================================================
 

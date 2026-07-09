@@ -1,0 +1,129 @@
+{
+    "robot_metadata": {
+        "map_number": 2,
+        "robot_number": 1,
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 12,
+        "num_tasks": 1
+    },
+    "start_position": [
+        307,
+        758
+    ],
+    "goal_position": [
+        674,
+        580
+    ],
+    "task_points": {
+        "1": [
+            528,
+            188
+        ]
+    },
+    "task_sequence": [
+        1
+    ],
+    "obstacles": [
+        {
+            "type": "circle",
+            "position": [
+                417,
+                347
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                177,
+                266
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                510,
+                627
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                613,
+                363
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                291,
+                518
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                86,
+                480
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                369,
+                226
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                635,
+                528
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                685,
+                114
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                167,
+                77
+            ],
+            "radius": 40
+        },
+        {
+            "type": "u_shape",
+            "position": [
+                531,
+                223
+            ],
+            "size": 120,
+            "thickness": 20
+        },
+        {
+            "type": "u_shape",
+            "position": [
+                304,
+                681
+            ],
+            "size": 120,
+            "thickness": 20
+        }
+    ]
+}
