@@ -31,7 +31,7 @@ TARGET_SCALE = 12.0                 # world is scaled so larger map dim = 12.0 u
 BOUNDS_MIN = np.array([0.0, 0.0])
 BOUNDS_MAX = np.array([TARGET_SCALE, TARGET_SCALE])
 
-ROBOT_RADIUS = 0.15                 # robot footprint radius, world units
+ROBOT_RADIUS = 0.1                 # robot footprint radius, world units
 
 # ============================================================
 # 2. ROBOT / SWARM CONSTANTS
@@ -65,8 +65,8 @@ OBSTACLE_OBS_DIM = 4
 
 # Action: [linear_velocity_cmd, angular_velocity_cmd] normalized to [-1, 1]
 ACTION_DIM = 2
-MAX_LINEAR_VEL = 2.5                 # world units / s
-MAX_ANGULAR_VEL = 2.0                # rad / s
+MAX_LINEAR_VEL = 1.5                 # world units / s
+MAX_ANGULAR_VEL = 1.0                # rad / s
 
 def obs_dim_for(max_robots=MAX_ROBOTS, k_obstacles=K_NEAREST_OBSTACLES):
     """Total flat observation length for one ego robot:
@@ -114,10 +114,10 @@ def render_robot_color(robot_idx):
 # ============================================================
 
 REWARD_WEIGHTS = {
-    "w_progress": 25.0,           # keep, now signed
+    "w_progress": 40.0,           # keep, now signed
     "w_path_error": 4.0,          # raise from 1.5 — must dominate over noise
-    "w_static_collision": 500.0,
-    "w_robot_collision": 500.0,
+    "w_static_collision": 50.0,
+    "w_robot_collision": 50.0,
     "w_static_proximity": 6.0,
     "w_robot_proximity": 2.0,
     "w_goal_bonus": 75.0,
@@ -164,10 +164,10 @@ def robot_files_for_stage(stage_cfg):
 CURRICULUM_STAGES = [
     {
         "name": "stage1_single_robot_simple_path",
-        "obstacle_map": "maps/map_002_robot_1.json",
+        "obstacle_map": "maps/map_003_robot_1.json",
         "robot_files": [
-            {"map": "maps/map_002_robot_1.json",
-             "path": "solves/multi/map_002_robot_1_manual_control_points.json"},
+            {"map": "maps/map_003_robot_1.json",
+             "path": "solves/multi/map_003_robot_1_manual_control_points.json"},
         ],
         "n_robots_range": (1, 1),
         "enable_robot_collision": False,
@@ -418,3 +418,5 @@ def distance_to_nearest_static_obstacles(position, obstacles, k=K_NEAREST_OBSTAC
         rows.append((dx, dy, d))
     rows.sort(key=lambda r: r[2])
     return np.array(rows[:k], dtype=np.float32) if rows else np.zeros((0, 3), dtype=np.float32)
+
+

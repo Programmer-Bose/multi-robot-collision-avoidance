@@ -180,6 +180,9 @@ class MultiRobotPathEnv(gym.Env):
         truncated = self.step_count >= self.max_episode_steps
         truncated_arr = np.full(self.max_robots, truncated, dtype=bool)
 
+        if truncated:
+            rewards -= 20.0 * self.active_mask  # only active robots
+
         obs = self._build_observation()
         info = {
             "n_active": self.n_active,
@@ -316,12 +319,16 @@ class MultiRobotPathEnv(gym.Env):
             curr_s = self._new_progress[i]
 
             progress_delta = curr_s - prev_s   # signed: penalize backward/no progress
+            
 
             r = 0.0
             
-
+            if progress_delta < 0.01:
+                r -= 0.5    
+                
             heading_reward = np.cos(heading_error)
-            r += w["w_heading"] * heading_reward
+            proximity_factor = np.clip(1.0 - lateral_err / 1.0, 0.0, 1.0)  # 1.0 fully suppresses reward if lateral_err >= 1.0
+            r += w["w_heading"] * heading_reward * proximity_factor
 
             r += w["w_progress"] * progress_delta
 

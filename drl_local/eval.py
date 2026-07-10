@@ -11,10 +11,12 @@ either:
 
 Usage:
     python eval.py --checkpoint solves/checkpoints/final_policy.pt \
-                    --map maps/stage3_multi_a.json --n-robots 3 --episodes 20
+                    --obstacle-map maps/map_001_robot_1.json \
+                    --robot-map-dir maps --path-dir solves --n-robots 3 --episodes 20
 
     python eval.py --checkpoint solves/checkpoints/final_policy.pt \
-                    --map maps/stage3_multi_a.json --n-robots 3 --watch
+                    --obstacle-map maps/map_001_robot_1.json \
+                    --robot-map-dir maps --path-dir solves --n-robots 3 --watch
 """
 
 import argparse
@@ -33,8 +35,11 @@ def parse_args():
     p = argparse.ArgumentParser(description="Evaluate a trained PPO policy.")
     p.add_argument("--checkpoint", type=str, required=True,
                     help="Path to a saved policy .pt file (from PPOAgent.save()).")
-    p.add_argument("--map", type=str, required=True,
-                    help="Map JSON path (map_gen.py format).")
+    p.add_argument("--obstacle-map", type=str, required=True,
+                    help="Shared obstacle/bounds map JSON path (map_gen.py format).")
+    p.add_argument("--robot-map-dir", type=str, default=None,
+                    help="Directory containing per-robot map JSONs (start/goal source) "
+                         "named '<mapname>_robot<i>*.json'. Defaults to 'maps/'.")
     p.add_argument("--path-dir", type=str, default=None,
                     help="Directory containing per-robot control-point JSONs "
                          "named '<mapname>_robot<i>_control_points.json'. "
@@ -70,6 +75,28 @@ def resolve_path_files(map_path, path_dir, max_robots):
             )
         path_files.append(candidates[0])
     return path_files
+
+
+def resolve_robot_map_files(map_path, robot_map_dir, max_robots):
+    """Resolves per-robot map JSONs (used only for start/goal) named like
+    '<mapname>_robot<i>.json' under robot_map_dir. If robot_map_dir is a
+    single file, reuse it for every robot slot (single-robot / stage1 case)."""
+    map_name = os.path.splitext(os.path.basename(map_path))[0]
+    robot_map_dir = robot_map_dir if robot_map_dir is not None else "maps"
+
+    if os.path.isfile(robot_map_dir):
+        return [robot_map_dir] * max_robots
+
+    robot_map_files = []
+    for i in range(max_robots):
+        candidates = sorted(glob.glob(os.path.join(robot_map_dir, f"{map_name}*robot{i}*.json")))
+        if not candidates:
+            raise FileNotFoundError(
+                f"No robot map JSON found for robot slot {i} under '{robot_map_dir}' "
+                f"matching map '{map_name}'."
+            )
+        robot_map_files.append(candidates[0])
+    return robot_map_files
 
 
 def load_agent(checkpoint, device):
@@ -132,10 +159,12 @@ def evaluate_batch(env, agent, n_episodes, deterministic=True):
 def main():
     args = parse_args()
     max_robots = cu.MAX_ROBOTS
-    path_files = resolve_path_files(args.map, args.path_dir, max_robots)
+    path_files = resolve_path_files(args.obstacle_map, args.path_dir, max_robots)
+    robot_map_files = resolve_robot_map_files(args.obstacle_map, args.robot_map_dir, max_robots)
 
     env = MultiRobotPathEnv(
-        map_json_path=args.map,
+        map_json_path=args.obstacle_map,
+        robot_map_json_paths=robot_map_files,
         path_json_paths=path_files,
         n_robots=args.n_robots,
         max_robots=max_robots,
