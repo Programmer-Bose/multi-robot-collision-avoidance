@@ -27,22 +27,27 @@ import config_utils as cu
 class MultiRobotPathEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": cu.RENDER_FPS}
 
-    def __init__(self, map_json_path, path_json_paths, n_robots=None,
+    def __init__(self, map_json_path, path_json_paths, robot_map_json_paths, n_robots=None,
                  stage_cfg=None, max_robots=cu.MAX_ROBOTS, render_mode=None):
-        """
-        map_json_path   : path to the map_gen.py-format JSON (start/goal/tasks/obstacles)
-        path_json_paths : list of per-robot control-point JSON paths (len >= max possible
-                           n_robots for this map); robot i uses path_json_paths[i]
-        n_robots        : fixed active robot count for this env instance; if None,
-                           sampled each reset() from stage_cfg["n_robots_range"]
-        stage_cfg       : one entry from config_utils.CURRICULUM_STAGES (optional;
-                           only needed if n_robots is None or collision toggling is desired)
-        max_robots      : fixed slot count used for padding (observation/action shapes)
-        render_mode     : None | "human" | "rgb_array"
-        """
+       
         super().__init__()
 
-        self.map_data = cu.load_map(map_json_path)
+        # self._all_map_data = [cu.load_map(p) for p in map_json_paths[:max_robots]]
+        # self.obstacles_per_robot = [m["obstacles"] for m in self._all_map_data]
+        self.map_data = cu.load_map(map_json_path)      # obstacles shared, unchanged as before
+        self.obstacles = self.map_data["obstacles"]
+        assert len(robot_map_json_paths) >= max_robots, (
+            "Need at least max_robots robot-map files (one start/goal source per possible robot slot)."
+        )
+
+        # NEW: per-robot start/goal, pulled from each robot's own map file
+        self._robot_starts = []
+        self._robot_goals = []
+        for p in robot_map_json_paths[:max_robots]:      # list of per-robot map files, start/goal only
+            md = cu.load_map(p)
+            self._robot_starts.append(md["start"])
+            self._robot_goals.append(md["goal"])
+
         self.max_robots = max_robots
         self.stage_cfg = stage_cfg
         self.fixed_n_robots = n_robots
@@ -64,8 +69,6 @@ class MultiRobotPathEnv(gym.Env):
             polyline = cu.build_full_path_polyline(segments)
             self._all_polylines.append(polyline)
             self._all_arclengths.append(cu.path_arclength_table(polyline))
-
-        self.obstacles = self.map_data["obstacles"]
 
         # --- Gym spaces (fixed to max_robots so PPO sees a constant shape) ---
         obs_len = cu.obs_dim_for(max_robots=self.max_robots)
@@ -113,7 +116,7 @@ class MultiRobotPathEnv(gym.Env):
         self.active_mask = np.zeros(self.max_robots, dtype=np.float32)
         self.active_mask[: self.n_active] = 1.0
 
-        start = self.map_data["start"]
+        # start = self._all_map_data[i]["start"]
         self.positions = np.tile(cu.PAD_POSITION, (self.max_robots, 1)).astype(np.float32)
         self.headings = np.zeros(self.max_robots, dtype=np.float32)
         self.velocities = np.zeros((self.max_robots, 2), dtype=np.float32)
@@ -125,7 +128,7 @@ class MultiRobotPathEnv(gym.Env):
         # so they don't perfectly overlap on reset.
         for i in range(self.n_active):
             jitter = rng.uniform(-0.15, 0.15, size=2) if hasattr(rng, "uniform") else np.zeros(2)
-            self.positions[i] = start + jitter
+            self.positions[i] = self._robot_starts[i] + jitter
             path0 = self._all_polylines[i][0]
             path1 = self._all_polylines[i][min(3, len(self._all_polylines[i]) - 1)]
             self.headings[i] = np.arctan2(*(path1 - path0)[::-1])
@@ -156,9 +159,20 @@ class MultiRobotPathEnv(gym.Env):
             self.positions[i] = new_pos
 
             idx, _, s_now = cu.nearest_point_on_polyline(
-                self._all_polylines[i], self._all_arclengths[i], self.positions[i]
+                self._all_polylines[i],
+                self._all_arclengths[i],
+                self.positions[i]
             )
-            self.progress_s[i] = s_now
+
+            # Store current progress temporarily.
+            # Do NOT overwrite self.progress_s yet.
+            current_progress = s_now
+
+            # Save for reward calculation
+            if not hasattr(self, "_new_progress"):
+                self._new_progress = np.zeros(self.max_robots, dtype=np.float32)
+
+            self._new_progress[i] = current_progress
 
         rewards, terminated, static_hit, robot_hit, reached_goal = self._compute_rewards_and_terms(action)
 
@@ -214,7 +228,8 @@ class MultiRobotPathEnv(gym.Env):
                 self._all_polylines[i], self._all_arclengths[i], s_now, cu.PATH_LOOKAHEAD_DIST
             )
             look_rel = look_pt - pos
-            goal = self.map_data["goal"] if self.map_data["goal"] is not None else self._all_polylines[i][-1]
+            # goal = self.map_data["goal"] if self.map_data["goal"] is not None else self._all_polylines[i][-1]
+            goal = self._robot_goals[i] if self._robot_goals[i] is not None else self._all_polylines[i][-1]
             dist_to_goal = float(np.linalg.norm(goal - pos))
             total_len = self._all_arclengths[i][-1]
             progress_frac = float(s_now / total_len) if total_len > 0 else 0.0
@@ -265,19 +280,52 @@ class MultiRobotPathEnv(gym.Env):
         for i in range(self.max_robots):
             if self.active_mask[i] == 0 or self.done_flags[i]:
                 continue
+
             pos = self.positions[i]
 
             idx, lateral_err, s_now = cu.nearest_point_on_polyline(
-                self._all_polylines[i], self._all_arclengths[i], pos
+                self._all_polylines[i],
+                self._all_arclengths[i],
+                pos
             )
+                        
+
+            # Look-ahead point on the reference path
+            look_pt = cu.lookahead_point(
+                self._all_polylines[i],
+                self._all_arclengths[i],
+                s_now,
+                cu.PATH_LOOKAHEAD_DIST
+            )
+
+            # Desired heading toward the look-ahead point
+            tangent_pt = cu.lookahead_point(
+                self._all_polylines[i], self._all_arclengths[i], s_now, lookahead_dist=0.05
+            )
+            desired_heading = np.arctan2(
+                tangent_pt[1] - pos[1],
+                tangent_pt[0] - pos[0]
+            )
+
+            # Heading error (wrapped to [-pi, pi])
+            heading_error = cu.wrap_to_pi(
+                desired_heading - self.headings[i]
+            )
+
             prev_s = self.progress_s[i]
-            progress_delta = max(0.0, s_now - prev_s)
+            curr_s = self._new_progress[i]
+
+            progress_delta = curr_s - prev_s   # signed: penalize backward/no progress
 
             r = 0.0
+            
+
+            heading_reward = np.cos(heading_error)
+            r += w["w_heading"] * heading_reward
+
             r += w["w_progress"] * progress_delta
+
             r -= w["w_path_error"] * lateral_err
-            if lateral_err < 0.15:
-                r += 0.2
             r -= w["w_time_penalty"]
 
             ang_jerk = abs(action[i][1] - self.prev_ang_vel[i])
@@ -309,13 +357,24 @@ class MultiRobotPathEnv(gym.Env):
                         r -= w["w_robot_proximity"] * (cu.COLLISION_PROXIMITY_MARGIN - d)
 
             # goal reached
-            goal = self.map_data["goal"] if self.map_data["goal"] is not None else self._all_polylines[i][-1]
+            goal = self._robot_goals[i] if self._robot_goals[i] is not None else self._all_polylines[i][-1]
             if np.linalg.norm(goal - pos) <= cu.GOAL_REACH_RADIUS:
                 r += w["w_goal_bonus"]
                 reached_goal[i] = True
                 terminated[i] = True
 
             rewards[i] = r
+
+            # print(
+            #     f"Robot {i} | "
+            #     f"Progress={progress_delta:.3f} | "
+            #     f"Lateral={lateral_err:.3f} | "
+            #     f"Improve={path_improvement:.3f} | "
+            #     f"Heading={heading_reward:.3f} | "
+            #     f"Reward={r:.3f}"
+            # )
+        # Update progress only AFTER rewards have been computed.
+        self.progress_s[:] = self._new_progress[:]
 
         return rewards, terminated, static_hit, robot_hit, reached_goal
 
@@ -383,9 +442,12 @@ class MultiRobotPathEnv(gym.Env):
             hy = px[1] - int(15 * np.sin(self.headings[i]))
             pygame.draw.line(screen, (0, 0, 0), px, (hx, hy), 2)
 
-        goal = self.map_data["goal"]
-        if goal is not None:
-            pygame.draw.circle(screen, cu.RENDER_COLOR_GOAL, self._world_to_screen(goal), 10, 3)
+        for i in range(self.max_robots):
+            if self.active_mask[i] == 0:
+                continue
+            goal = self._robot_goals[i]
+            if goal is not None:
+                pygame.draw.circle(screen, cu.RENDER_COLOR_GOAL, self._world_to_screen(goal), 10, 3)
 
         # HUD
         pygame.draw.rect(screen, cu.RENDER_COLOR_HUD_BG,

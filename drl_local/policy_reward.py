@@ -159,7 +159,7 @@ class ActorCritic(nn.Module):
 
 def progress_reward(prev_arclength, curr_arclength, weight=None):
     w = cu.REWARD_WEIGHTS["w_progress"] if weight is None else weight
-    return w * max(0.0, curr_arclength - prev_arclength)
+    return w * (curr_arclength - prev_arclength)
 
 def path_error_penalty(lateral_error, weight=None):
     w = cu.REWARD_WEIGHTS["w_path_error"] if weight is None else weight

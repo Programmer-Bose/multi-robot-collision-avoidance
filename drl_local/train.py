@@ -46,37 +46,23 @@ def parse_args():
     return p.parse_args()
 
 
-def build_path_files_for_stage(stage, map_json_path=None):
-    """Resolve a reusable control-point JSON for the current map.
-
-    The repository stores solved paths under solves/multi/ as files named
-    like map_002_robot_1_manual_control_points.json. We first look for a
-    matching solve file for the active map and, if none is found, fall back
-    to the legacy stage-based naming convention.
-    """
-    if map_json_path is not None:
-        stem = os.path.splitext(os.path.basename(map_json_path))[0]
-        patterns = [
-            f"solves/**/{stem}_manual_control_points.json",
-            f"solves/**/{stem}_control_points.json",
-            f"solves/**/{stem}*.json",
-        ]
-        for pattern in patterns:
-            matches = sorted(glob.glob(pattern, recursive=True))
-            if matches:
-                return [matches[0]] * cu.MAX_ROBOTS
-
-    return [f"solves/{stage['name']}_robot{i}_control_points.json"
-            for i in range(cu.MAX_ROBOTS)]
+def build_robot_files_for_stage(stage):
+    # stage["robot_files"] = [{"map":..., "path":...}, ...]  (map here = per-robot start/goal file)
+    maps, paths = cu.robot_files_for_stage(stage)
+    n = len(maps)
+    robot_map_files = [maps[i % n] for i in range(cu.MAX_ROBOTS)]
+    path_files = [paths[i % n] for i in range(cu.MAX_ROBOTS)]
+    return robot_map_files, path_files
 
 
 def make_env(curriculum, render):
     stage = curriculum.current_stage()
-    map_path = curriculum.sample_map_file()
-    path_files = build_path_files_for_stage(stage, map_json_path=map_path)
+    # map_path = curriculum.sample_map_file()
+    robot_map_files, path_files = build_robot_files_for_stage(stage)
 
     env = MultiRobotPathEnv(
-        map_json_path=map_path,
+        map_json_path=stage["obstacle_map"],       # one shared obstacle/bounds map
+        robot_map_json_paths=robot_map_files,       # per-robot start/goal source
         path_json_paths=path_files,
         stage_cfg=stage,
         max_robots=cu.MAX_ROBOTS,

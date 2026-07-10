@@ -114,15 +114,16 @@ def render_robot_color(robot_idx):
 # ============================================================
 
 REWARD_WEIGHTS = {
-    "w_progress": 15.0,           # reward per unit of forward progress along path
-    "w_path_error": 2.5,         # stronger penalty for lateral deviation from path
-    "w_static_collision": 500.0,  # penalty on static-obstacle collision
-    "w_robot_collision": 500.0,   # penalty on inter-robot collision
-    "w_static_proximity": 2.0,   # continuous shaping term near static obstacles
-    "w_robot_proximity": 2.0,    # continuous shaping term near other robots
-    "w_goal_bonus": 10.0,        # reduced goal bonus so staying on path matters more
-    "w_time_penalty": 0.01,      # per-step penalty to encourage speed
-    "w_smoothness": 0.1,         # penalty on angular-velocity jerk
+    "w_progress": 25.0,           # keep, now signed
+    "w_path_error": 4.0,          # raise from 1.5 — must dominate over noise
+    "w_static_collision": 500.0,
+    "w_robot_collision": 500.0,
+    "w_static_proximity": 6.0,
+    "w_robot_proximity": 2.0,
+    "w_goal_bonus": 75.0,
+    "w_time_penalty": 0.01,
+    "w_smoothness": 0.1,
+    "w_heading": 2.0,             # NEW — explicit weight instead of hardcoded 2.0
 }
 
 COLLISION_PROXIMITY_MARGIN = 0.5     # world units, shaping kicks in within this distance
@@ -152,10 +153,22 @@ PPO_CONFIG = {
 # from during that stage, whether inter-robot collision is active, and the
 # promotion criterion (mean success rate over a rolling window of episodes).
 
+def robot_files_for_stage(stage_cfg):
+    """Returns (map_paths_list, path_paths_list), each length == len(stage_cfg['robot_files'])."""
+    maps = [rf["map"] for rf in stage_cfg["robot_files"]]
+    paths = [rf["path"] for rf in stage_cfg["robot_files"]]
+    return maps, paths
+
+
+
 CURRICULUM_STAGES = [
     {
         "name": "stage1_single_robot_simple_path",
-        "map_files": ["maps/map_002_robot_1.json"],
+        "obstacle_map": "maps/map_002_robot_1.json",
+        "robot_files": [
+            {"map": "maps/map_002_robot_1.json",
+             "path": "solves/multi/map_002_robot_1_manual_control_points.json"},
+        ],
         "n_robots_range": (1, 1),
         "enable_robot_collision": False,
         "success_rate_threshold": 0.9,
@@ -163,31 +176,18 @@ CURRICULUM_STAGES = [
         "max_episode_steps": 1000,
     },
     {
-        "name": "stage2_single_robot_complex_path",
-        "map_files": ["maps/map_001_robot_1.json"],
-        "n_robots_range": (1, 1),
+        "name": "stage3_multi_robot_low_density",
+        "obstacle_map": "maps/map_001_robot_1.json",
+        "robot_files": [
+            {"map": "maps/map_001_robot_1.json", "path": "solves/multi/map_001_robot_1_control_points.json"},
+            {"map": "maps/map_001_robot_2.json", "path": "solves/multi/map_001_robot_2_control_points.json"},
+            {"map": "maps/map_001_robot_3.json", "path": "solves/multi/map_001_robot_3_control_points.json"},
+        ],
+        "n_robots_range": (2, 3),
         "enable_robot_collision": False,
         "success_rate_threshold": 0.85,
         "eval_window": 100,
-        "max_episode_steps": 400,
-    },
-    {
-        "name": "stage3_multi_robot_low_density",
-        "map_files": ["maps/map_001_robot_2.json"],
-        "n_robots_range": (2, 3),
-        "enable_robot_collision": True,
-        "success_rate_threshold": 0.8,
-        "eval_window": 150,
-        "max_episode_steps": 500,
-    },
-    {
-        "name": "stage4_multi_robot_high_density",
-        "map_files": ["maps/map_001_robot_3.json"],
-        "n_robots_range": (3, 5),
-        "enable_robot_collision": True,
-        "success_rate_threshold": 0.75,
-        "eval_window": 200,
-        "max_episode_steps": 500,
+        "max_episode_steps": 1000,
     },
 ]
 
