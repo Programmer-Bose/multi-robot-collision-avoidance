@@ -31,7 +31,7 @@ TARGET_SCALE = 12.0                 # world is scaled so larger map dim = 12.0 u
 BOUNDS_MIN = np.array([0.0, 0.0])
 BOUNDS_MAX = np.array([TARGET_SCALE, TARGET_SCALE])
 
-ROBOT_RADIUS = 0.1                 # robot footprint radius, world units
+ROBOT_RADIUS = 0.15                 # robot footprint radius, world units
 
 # ============================================================
 # 2. ROBOT / SWARM CONSTANTS
