@@ -55,7 +55,7 @@ N_SAMPLES_PER_SEGMENT = 80          # denser than the DE solver since this is no
 DT = 0.1                            # control time step (s)
 MAX_LINEAR_VEL = 1.5                # m/s   (scaled-arena units per second)
 MAX_ANGULAR_VEL = np.pi / 2         # rad/s
-MAX_STEPS_PER_EPISODE = 500
+MAX_STEPS_PER_EPISODE = 800
 
 # --- Episode initialization (paper Eq. 21: random offset around a path point) ---
 INIT_POS_JITTER = 0.6               # +/- meters (world units) around chosen path point
@@ -90,7 +90,7 @@ GAMMA = 0.9
 TAU = 0.01
 REPLAY_BUFFER_SIZE = 100_000
 MIN_REPLAY_BEFORE_TRAINING = 2_000
-BATCH_SIZE = 64
+BATCH_SIZE = 256
 MAX_EPISODES = 100
 GRAD_CLIP_NORM = 5.0
 
@@ -619,7 +619,7 @@ def train(control_points_json, max_episodes=MAX_EPISODES, output_dir=OUTPUT_DIR,
                   f"noise sigma = {agent.noise.sigma:.3f}")
 
     env.close()
-    agent.save(os.path.join(output_dir, f"ddpg_path_following_{500+max_episodes}.pt"))
+    agent.save(os.path.join(output_dir, f"ddpg_path_following_{700+max_episodes}.pt"))
     plot_training_curve(episode_rewards, ref_path.map_name, output_dir)
     return agent, ref_path, episode_rewards
 
@@ -743,3 +743,5 @@ if __name__ == "__main__":
         resume_from=args.resume_from
     )
     evaluate(trained_agent, path, output_dir=args.output_dir, start_frac=0.0, render=args.render_eval)
+
+    # python ddpg_path_following.py --control_points_json solves/multi/map_001_robot_2_manual_control_points.json --resume_from .\solves_drl\ddpg_path_following_700.pt --episodes 300
