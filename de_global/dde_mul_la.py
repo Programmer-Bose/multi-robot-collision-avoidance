@@ -63,7 +63,7 @@ DE_TOL = 1e-8
 DE_SEED_BASE = 17                   # per-segment seed = DE_SEED_BASE + segment_index
 
 # --- Live visualization ---
-LIVE_PLOT_ENABLED = True             # if True, opens a live matplotlib window updated every generation
+LIVE_PLOT_ENABLED = False             # if True, opens a live matplotlib window updated every generation
 LIVE_PLOT_PAUSE = 0.001              # seconds paused per redraw (matplotlib needs this to flush the GUI event loop)
 
 
@@ -711,6 +711,6 @@ def run_planner(input_map_json, output_path_json=None, control_point_mode=None):
 if __name__ == "__main__":
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     # Switch mode here, or pass control_point_mode="direct" / "delta" to run_planner
-    run_planner("maps/map_001_robot_1.json",
-                f"solves/multi/planned_path_{timestamp}.json",
+    run_planner("maps/map_001_robot_2.json",
+                f"solves/planned_path_{timestamp}.json",
                 control_point_mode=CONTROL_POINT_MODE)
