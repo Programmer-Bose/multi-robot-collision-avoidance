@@ -112,8 +112,8 @@ OU_SIGMA_DECAY = 0.999   # multiplied once per episode
 DEFAULT_CURVE_TYPES = [
     "sine_wave",
     "cosine_s_curve",
-    "rounded_rect",
-    "zigzag",
+    # "rounded_rect",
+    # "zigzag",
     "circular_arc",
     "random_bspline",
 ]
@@ -166,7 +166,7 @@ def wrap_to_pi(angle):
     return (angle + np.pi) % (2 * np.pi) - np.pi
 
 
-ROBOT_MARKER_SIZE = 0.35
+ROBOT_MARKER_SIZE = 0.2
 
 
 def make_robot_triangle(x, y, theta, size=ROBOT_MARKER_SIZE):
@@ -787,7 +787,7 @@ def train(max_rounds=MAX_ROUNDS, episodes_per_path=EPISODES_PER_PATH, output_dir
     resume_from: optional path to a .pt checkpoint to continue training from.
     """
     os.makedirs(output_dir, exist_ok=True)
-    rng = np.random.default_rng(seed)
+    # rng = np.random.default_rng(seed)
     curve_types = curve_types or DEFAULT_CURVE_TYPES
 
     agent = DDPGAgent()
@@ -802,6 +802,7 @@ def train(max_rounds=MAX_ROUNDS, episodes_per_path=EPISODES_PER_PATH, output_dir
     global_episode = 0
 
     for round_idx in range(max_rounds):
+        rng = np.random.default_rng(seed+round_idx)
         curve_type = curve_types[round_idx % len(curve_types)]
         points = generate_random_path(curve_type, rng)
         ref_path = ReferencePath(points=points, map_name=f"{curve_type}_round{round_idx}")
@@ -853,7 +854,8 @@ def train(max_rounds=MAX_ROUNDS, episodes_per_path=EPISODES_PER_PATH, output_dir
             if greedy["first_action_mag"] < 1e-3:
                 print("  WARNING: first greedy action magnitude is ~0 - actor may have collapsed to near-zero output.")
 
-    agent.save(os.path.join(output_dir, "ddpg_path_following_multi_curve.pt"))
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    agent.save(os.path.join(output_dir, f"ddpg_path_following_multi_curve_{max_rounds}_{timestamp}.pt"))
     plot_training_curve(episode_rewards, episode_curve_types, output_dir, greedy_eval_log)
     return agent, episode_rewards, episode_curve_types, greedy_eval_log
 
