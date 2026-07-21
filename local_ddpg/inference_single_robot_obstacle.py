@@ -41,7 +41,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 
-from single_robot_obstacle_ddpg import (
+from local_ddpg.archive.single_robot_obstacle_ddpg import (
     ReferencePath,
     ObstacleMap,
     PathFollowObstacleEnv,

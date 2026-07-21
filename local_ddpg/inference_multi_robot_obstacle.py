@@ -43,7 +43,7 @@ import torch
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-from single_robot_obstacle_ddpg import (
+from single_robot_obstacle_ddpg2 import (
     ReferencePath,
     ObstacleMap,
     PathFollowObstacleEnv,

@@ -1,35 +1,26 @@
 """
-Single-Robot DDPG Path-Following + STATIC Obstacle Avoidance
-===============================================================
+Multi-Robot DDPG Path-Following + DYNAMIC Obstacle Avoidance
+=============================================================
 
-Same kinematics/training pipeline as ran_ddpg_path_following.py, but the
-environment now also loads a static obstacle map (circle obstacles from
-map_00X_robot_Y.json, rescaled from 800x800 px into the 12x12 arena) and
-the state is extended from 5 -> 7 inputs:
+Same 7-input state / network architecture as single_robot_obstacle_ddpg2.py:
 
     state = [x_e, y_e, theta_e, prev_v, prev_w, obs_dist, obs_angle]
 
-  - obs_dist  : signed surface distance to the NEAREST static obstacle
-                (negative = inside/colliding), clipped to +/- OBSTACLE_SENSE_RADIUS
-  - obs_angle : bearing to that obstacle relative to the robot's heading
+but "obstacles" are no longer just the static circles from the map JSON -
+they now ALSO include every OTHER robot's current position, moving along
+its own reference path over time. Each episode, one robot's path is
+randomly chosen as the ego (trained) path; every other loaded robot path
+is played back open-loop (advancing along its own arclength at a nominal
+speed) and treated as a moving circular obstacle, in addition to the
+static circles from the shared obstacle map.
 
-Training starts from SCRATCH (no checkpoint / no transfer learning) on
-ONE fixed manual reference path + its matching obstacle map, so you can
-verify the robot learns to track that specific path while steering
-around the static obstacles before scaling up to dynamic/multi-robot.
-
-Usage
------
-    python single_robot_obstacle_ddpg.py \
-        --control_points_json map_003_robot_2_manual_control_points.json \
-        --obstacle_map_json map_003_robot_2.json \
-        --episodes 1000
+No command-line arguments - every path/config is set as a hyperparameter
+constant below.
 """
 
 import os
 import json
 import random
-import argparse
 import datetime
 from collections import deque
 
@@ -41,21 +32,38 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import BSpline
 
 # ----------------------------------------------------------------------
-# 0. Hyperparameters
+# 0. Hyperparameters (EDIT THESE - no CLI args)
 # ----------------------------------------------------------------------
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# --- Input files: one control-points JSON per robot, sharing one obstacle map ---
+ROBOT_CONTROL_POINTS_JSONS = [
+    "mandp/map_002_robot_1_manual_control_points.json",
+    "mandp/map_002_robot_2_manual_control_points.json",
+    "mandp/map_002_robot_3_manual_control_points.json",
+    "mandp/map_002_robot_4_manual_control_points.json",
+]
+OBSTACLE_MAP_JSON = "mandp/map_002_robot_2.json"   # shared static obstacle layout
+
+EPISODES = 200
+OUTPUT_DIR = "solves_drl_dynamic"
+RESUME_FROM = "solves_drl_dynamic/ddpg_multi_robot_dynamic_250_20260721_222503.pt"         # e.g. "solves_drl_dynamic/ddpg_multi_robot_dynamic_1000_xxx.pt"
+VERBOSE_EVERY = 25
+EVAL_EVERY = 25
+RENDER = False
+RENDER_EVERY = 1
 
 BSPLINE_DEGREE = 3
 N_SAMPLES_PER_SEGMENT = 80
 
 DT = 0.1
 MAX_LINEAR_VEL = 1.5
-MAX_ANGULAR_VEL = np.pi/2
-MAX_STEPS_PER_EPISODE = 800
+MAX_ANGULAR_VEL = np.pi / 2
+MAX_STEPS_PER_EPISODE = 600
 
-INIT_POS_JITTER = 0.6
-INIT_HEADING_JITTER = 0.6
+INIT_POS_JITTER = 0.01
+INIT_HEADING_JITTER = 0.01
 
 GOAL_TOLERANCE = 0.1
 OFF_PATH_TOLERANCE = 4.0
@@ -63,19 +71,20 @@ OFF_PATH_TOLERANCE = 4.0
 ARENA_MIN = np.array([0.0, 0.0])
 ARENA_MAX = np.array([12.0, 12.0])
 
-# original obstacle JSONs are laid out on an 800x800 canvas -> rescale
-# into the 12x12 training arena
 OBSTACLE_MAP_PX = 800.0
-OBSTACLE_SCALE = (ARENA_MAX[0] - ARENA_MIN[0]) / OBSTACLE_MAP_PX  # = 0.015
+OBSTACLE_SCALE = (ARENA_MAX[0] - ARENA_MIN[0]) / OBSTACLE_MAP_PX
 
 W_PROGRESS = 2.0
-W_OBSTACLE_SHAPING = 0.3       # continuous penalty for being close to an obstacle
-OBSTACLE_SENSE_RADIUS = 3.0    # obs_dist clip/normalization range
-COLLISION_PENALTY = -10.0
+W_OBSTACLE_SHAPING = 0.6
+OBSTACLE_SENSE_RADIUS = 4.0
+COLLISION_PENALTY = -15.0
 GOAL_REWARD = 10.0
-W_TIME_PENALTY = 0.05   # constant per-step cost to encourage fewer steps
 
-STATE_DIM = 7           # [x_e, y_e, theta_e, prev_v, prev_w, obs_dist, obs_angle]
+# --- Dynamic-obstacle (other robots) playback ---
+OTHER_ROBOT_SPEED = 1.5     # nominal arclength speed (units/sec) for non-ego robots
+OTHER_ROBOT_RADIUS = 0.25   # treated collision radius for another robot's body
+
+STATE_DIM = 7               # unchanged: [x_e, y_e, theta_e, prev_v, prev_w, obs_dist, obs_angle]
 ACTION_DIM = 2
 ACTOR_HIDDEN = (400, 300, 300)
 CRITIC_HIDDEN = (400, 300, 300)
@@ -95,7 +104,6 @@ OU_SIGMA_MIN = 0.05
 OU_SIGMA_DECAY = 0.999
 
 RENDER_PAUSE = 0.001
-OUTPUT_DIR = "solves_drl_obstacle"
 
 
 def wrap_to_pi(angle):
@@ -176,12 +184,18 @@ class ReferencePath:
 
     def arclength_at_index(self, idx):
         return self.cum_length[idx]
-    
-    def nearest_index_forward(self, xy, prev_idx, window=15):
-        lo = max(0, prev_idx - 2)          # allow tiny backward slack for jitter
-        hi = min(len(self.points), prev_idx + window)
-        d2 = np.sum((self.points[lo:hi] - xy[None, :]) ** 2, axis=1)
-        return lo + int(np.argmin(d2))
+
+    def xy_at_arclength(self, s):
+        """Interpolate (x, y) at arclength s along this path (clamped)."""
+        s = float(np.clip(s, 0.0, self.total_length))
+        idx = int(np.searchsorted(self.cum_length, s))
+        idx = min(max(idx, 1), len(self.points) - 1)
+        s0, s1 = self.cum_length[idx - 1], self.cum_length[idx]
+        p0, p1 = self.points[idx - 1], self.points[idx]
+        if s1 - s0 < 1e-9:
+            return p1.copy()
+        frac = (s - s0) / (s1 - s0)
+        return p0 + frac * (p1 - p0)
 
     @property
     def goal_point(self):
@@ -201,27 +215,29 @@ class ObstacleMap:
             if obs.get("type") != "circle":
                 continue
             px, py = obs["position"]
-            # obstacle JSONs are in image/pixel space (origin top-left,
-            # y increases DOWNWARD). The reference paths / arena are in
-            # standard math space (origin bottom-left, y increases
-            # UPWARD), so y must be flipped before scaling or every
-            # obstacle ends up mirrored vertically relative to the path.
             arena_x = px * OBSTACLE_SCALE
             arena_y = (OBSTACLE_MAP_PX - py) * OBSTACLE_SCALE
             centers.append([arena_x, arena_y])
             radii.append(obs["radius"] * OBSTACLE_SCALE)
-        self.centers = np.asarray(centers, dtype=float) if centers else np.zeros((0, 2))
-        self.radii = np.asarray(radii, dtype=float) if radii else np.zeros((0,))
+        self.static_centers = np.asarray(centers, dtype=float) if centers else np.zeros((0, 2))
+        self.static_radii = np.asarray(radii, dtype=float) if radii else np.zeros((0,))
 
-    def nearest_distance_and_angle(self, xy, theta):
+    def nearest_distance_and_angle(self, xy, theta, dynamic_centers=None, dynamic_radii=None):
         """Signed surface distance (negative = inside obstacle) + bearing
-        to the closest obstacle. Returns (OBSTACLE_SENSE_RADIUS, 0.0) if
-        there are no obstacles."""
-        if len(self.centers) == 0:
+        to the closest obstacle, across BOTH static circles and the given
+        dynamic (other-robot) circles for this instant."""
+        centers = self.static_centers
+        radii = self.static_radii
+        if dynamic_centers is not None and len(dynamic_centers) > 0:
+            centers = np.vstack([centers, dynamic_centers]) if len(centers) else np.asarray(dynamic_centers)
+            radii = np.concatenate([radii, dynamic_radii]) if len(radii) else np.asarray(dynamic_radii)
+
+        if len(centers) == 0:
             return OBSTACLE_SENSE_RADIUS, 0.0
-        d = self.centers - xy[None, :]
+
+        d = centers - xy[None, :]
         center_dist = np.hypot(d[:, 0], d[:, 1])
-        surface_dist = center_dist - self.radii
+        surface_dist = center_dist - radii
         idx = int(np.argmin(surface_dist))
         dx, dy = d[idx]
         world_angle = np.arctan2(dy, dx)
@@ -230,13 +246,44 @@ class ObstacleMap:
 
 
 # ----------------------------------------------------------------------
-# 3. Path-following + static-obstacle-avoidance environment
+# 3. Other-robot dynamic-obstacle playback
 # ----------------------------------------------------------------------
 
-class PathFollowObstacleEnv:
-    def __init__(self, ref_path: ReferencePath, obstacle_map: ObstacleMap, render_mode=None):
+class DynamicRobotObstacle:
+    """Plays one robot's reference path open-loop at a nominal speed and
+    reports its current (x, y) position as a function of elapsed sim time,
+    independent of the ego robot's own step count."""
+
+    def __init__(self, ref_path: ReferencePath, speed=OTHER_ROBOT_SPEED, radius=OTHER_ROBOT_RADIUS):
         self.path = ref_path
+        self.speed = speed
+        self.radius = radius
+        self.elapsed = 0.0
+
+    def reset(self):
+        self.elapsed = 0.0
+
+    def step(self, dt=DT):
+        self.elapsed += self.speed * dt
+        # loop back to the start once the far end is reached, so the
+        # "traffic" keeps moving for the whole episode
+        if self.elapsed > self.path.total_length:
+            self.elapsed = 0.0
+
+    def current_xy(self):
+        return self.path.xy_at_arclength(self.elapsed)
+
+
+# ----------------------------------------------------------------------
+# 4. Path-following + DYNAMIC-obstacle-avoidance environment
+# ----------------------------------------------------------------------
+
+class PathFollowDynamicObstacleEnv:
+    def __init__(self, ego_path: ReferencePath, obstacle_map: ObstacleMap,
+                 dynamic_obstacles=None, render_mode=None):
+        self.path = ego_path
         self.obstacles = obstacle_map
+        self.dynamic_obstacles = dynamic_obstacles or []   # list[DynamicRobotObstacle]
         self.pose = np.zeros(3)
         self.prev_action = np.zeros(2)
         self.steps = 0
@@ -245,15 +292,14 @@ class PathFollowObstacleEnv:
         self.render_mode = render_mode
         self._fig = None
         self._ax = None
-        self._path_line = None
         self._trail_line = None
         self._robot_patch = None
+        self._dyn_patches = []
         self._title_artist = None
         self._trail_xy = []
 
     def reset(self):
         idx = 0
-        self.prev_idx = 0
         p_xy, p_heading = self.path.point_at_index(idx)
         jitter_xy = np.random.uniform(-INIT_POS_JITTER, INIT_POS_JITTER, size=2)
         jitter_theta = np.random.uniform(-INIT_HEADING_JITTER, INIT_HEADING_JITTER)
@@ -266,14 +312,26 @@ class PathFollowObstacleEnv:
         self.prev_arclength = self.path.arclength_at_index(idx)
         self._trail_xy = [self.pose[:2].copy()]
 
+        # randomize each dynamic obstacle's starting phase along its own
+        # path so the ego robot doesn't always see the same traffic pattern
+        for dyn in self.dynamic_obstacles:
+            dyn.reset()
+            dyn.elapsed = np.random.uniform(0.0, dyn.path.total_length)
+
         if self.render_mode == "human":
             self._render_init()
         return self._compute_state()
 
+    def _dynamic_centers_radii(self):
+        if not self.dynamic_obstacles:
+            return np.zeros((0, 2)), np.zeros((0,))
+        centers = np.array([d.current_xy() for d in self.dynamic_obstacles])
+        radii = np.array([d.radius for d in self.dynamic_obstacles])
+        return centers, radii
+
     def _compute_state(self):
         x, y, theta = self.pose
-        idx = self.path.nearest_index_forward(np.array([x, y]), self.prev_idx)
-        self.prev_idx = idx
+        idx = self.path.nearest_index(np.array([x, y]))
         p_xy, p_heading = self.path.point_at_index(idx)
 
         dx = p_xy[0] - x
@@ -282,7 +340,9 @@ class PathFollowObstacleEnv:
         y_e = -np.sin(theta) * dx + np.cos(theta) * dy
         theta_e = wrap_to_pi(p_heading - theta)
 
-        obs_dist, obs_angle = self.obstacles.nearest_distance_and_angle(np.array([x, y]), theta)
+        dyn_centers, dyn_radii = self._dynamic_centers_radii()
+        obs_dist, obs_angle = self.obstacles.nearest_distance_and_angle(
+            np.array([x, y]), theta, dyn_centers, dyn_radii)
         obs_dist_clipped = float(np.clip(obs_dist, -OBSTACLE_SENSE_RADIUS, OBSTACLE_SENSE_RADIUS))
 
         state = np.array([x_e, y_e, theta_e, self.prev_action[0], self.prev_action[1],
@@ -303,6 +363,11 @@ class PathFollowObstacleEnv:
         self.steps += 1
         self._trail_xy.append(self.pose[:2].copy())
 
+        # advance the other robots' positions by one timestep too, so the
+        # "traffic" keeps moving regardless of the ego robot's behavior
+        for dyn in self.dynamic_obstacles:
+            dyn.step(DT)
+
         state, info = self._compute_state()
         x_e, y_e, theta_e = state[0], state[1], state[2]
 
@@ -313,9 +378,6 @@ class PathFollowObstacleEnv:
         reward += W_PROGRESS * progress
         self.prev_arclength = current_arclength
 
-        reward -= W_TIME_PENALTY
-
-        # continuous obstacle-avoidance shaping (penalize getting close)
         if info["obs_dist"] < OBSTACLE_SENSE_RADIUS:
             reward -= W_OBSTACLE_SHAPING * max(0.0, OBSTACLE_SENSE_RADIUS - info["obs_dist"]) / OBSTACLE_SENSE_RADIUS
 
@@ -359,15 +421,23 @@ class PathFollowObstacleEnv:
             plt.close(self._fig)
         plt.ion()
         self._fig, self._ax = plt.subplots(figsize=(8, 6))
-        self._path_line, = self._ax.plot(self.path.points[:, 0], self.path.points[:, 1], "b--",
-                                          linewidth=1.5, label="Reference path", zorder=2)
-        for c, r in zip(self.obstacles.centers, self.obstacles.radii):
+        self._ax.plot(self.path.points[:, 0], self.path.points[:, 1], "b--",
+                       linewidth=1.5, label="Ego reference path", zorder=2)
+        for c, r in zip(self.obstacles.static_centers, self.obstacles.static_radii):
             self._ax.add_patch(plt.Circle(c, r, color="gray", alpha=0.4, zorder=1))
+
         self._trail_line, = self._ax.plot([], [], "-", color="crimson", linewidth=2.0,
                                            label="Robot trail", zorder=3)
         self._robot_patch = plt.Polygon(make_robot_triangle(*self.pose), closed=True,
                                          color="crimson", zorder=4)
         self._ax.add_patch(self._robot_patch)
+
+        self._dyn_patches = []
+        for dyn in self.dynamic_obstacles:
+            patch = plt.Circle(dyn.current_xy(), dyn.radius, color="orange", alpha=0.7, zorder=4)
+            self._ax.add_patch(patch)
+            self._dyn_patches.append(patch)
+
         self._ax.set_xlim(ARENA_MIN[0], ARENA_MAX[0])
         self._ax.set_ylim(ARENA_MIN[1], ARENA_MAX[1])
         self._ax.set_aspect("equal")
@@ -384,6 +454,8 @@ class PathFollowObstacleEnv:
         trail = np.array(self._trail_xy)
         self._trail_line.set_data(trail[:, 0], trail[:, 1])
         self._robot_patch.set_xy(make_robot_triangle(*self.pose))
+        for patch, dyn in zip(self._dyn_patches, self.dynamic_obstacles):
+            patch.center = dyn.current_xy()
         label = f"[{self.path.map_name}] step {self.steps}"
         if reward is not None:
             label += f" | reward={reward:.3f}"
@@ -399,7 +471,7 @@ class PathFollowObstacleEnv:
 
 
 # ----------------------------------------------------------------------
-# 4. Noise / replay buffer / networks / DDPG agent (7-input)
+# 5. Noise / replay buffer / networks / DDPG agent (unchanged, 7-input)
 # ----------------------------------------------------------------------
 
 class OUNoise:
@@ -450,7 +522,8 @@ class Actor(nn.Module):
         self.register_buffer("action_scale", torch.tensor([max_linear, max_angular], dtype=torch.float32))
 
     def forward(self, state):
-        return self.net(state) * self.action_scale
+        raw = self.net(state)
+        return raw * self.action_scale
 
 
 class Critic(nn.Module):
@@ -516,12 +589,14 @@ class DDPGAgent:
 
         current_q = self.critic(s, a)
         critic_loss = nn.functional.mse_loss(current_q, y)
+
         self.critic_optim.zero_grad()
         critic_loss.backward()
         nn.utils.clip_grad_norm_(self.critic.parameters(), GRAD_CLIP_NORM)
         self.critic_optim.step()
 
         actor_loss = -self.critic(s, self.actor(s)).mean()
+
         self.actor_optim.zero_grad()
         actor_loss.backward()
         nn.utils.clip_grad_norm_(self.actor.parameters(), GRAD_CLIP_NORM)
@@ -561,23 +636,40 @@ def greedy_eval_rollout(agent, env, max_steps=MAX_STEPS_PER_EPISODE):
 
 
 # ----------------------------------------------------------------------
-# 5. Training loop (single fixed path + obstacle map, from scratch)
+# 6. Training loop - rotates which loaded robot path is the ego each episode
 # ----------------------------------------------------------------------
 
-def train(ref_path, obstacle_map, episodes=1000, output_dir=OUTPUT_DIR, verbose_every=10,
-          eval_every=25, render=False, render_every=1, resume_from=None):
-    os.makedirs(output_dir, exist_ok=True)
+def train():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    all_paths = [ReferencePath(p) for p in ROBOT_CONTROL_POINTS_JSONS]
+    obstacle_map = ObstacleMap(OBSTACLE_MAP_JSON)
+    print(f"Loaded {len(all_paths)} robot path(s): "
+          f"{[p.map_name for p in all_paths]} and {len(obstacle_map.static_centers)} static obstacles.")
+
     agent = DDPGAgent()
-    if resume_from is not None:
-        agent.load(resume_from)
-        print(f"Resumed training from checkpoint: {resume_from}")
-    env = PathFollowObstacleEnv(ref_path, obstacle_map, render_mode=None)
+    if RESUME_FROM is not None:
+        agent.load(RESUME_FROM)
+        print(f"Resumed training from checkpoint: {RESUME_FROM}")
 
     episode_rewards, episode_success, episode_collision = [], [], []
     eval_log = []
+    env = None
 
-    for ep in range(1, episodes + 1):
-        env.render_mode = "human" if (render and (ep - 1) % render_every == 0) else None
+    for ep in range(1, EPISODES + 1):
+        # pick a random ego path; every OTHER loaded path becomes a moving
+        # dynamic obstacle for this episode
+        ego_idx = random.randrange(len(all_paths))
+        ego_path = all_paths[ego_idx]
+        dynamic_obstacles = [
+            DynamicRobotObstacle(p) for i, p in enumerate(all_paths) if i != ego_idx
+        ]
+
+        render_mode = "human" if (RENDER and (ep - 1) % RENDER_EVERY == 0) else None
+        if env is not None:
+            env.close()
+        env = PathFollowDynamicObstacleEnv(ego_path, obstacle_map, dynamic_obstacles, render_mode=render_mode)
+
         state, _ = env.reset()
         agent.noise.reset()
         ep_reward = 0.0
@@ -597,28 +689,39 @@ def train(ref_path, obstacle_map, episodes=1000, output_dir=OUTPUT_DIR, verbose_
         episode_success.append(bool(info.get("success", False)))
         episode_collision.append(bool(info.get("collided", False)))
 
-        if ep % verbose_every == 0:
-            recent_r = episode_rewards[-verbose_every:]
-            recent_s = episode_success[-verbose_every:]
-            recent_c = episode_collision[-verbose_every:]
-            print(f"Episode {ep:5d}/{episodes} | avg reward = {np.mean(recent_r):.3f} | "
-                  f"success rate = {np.mean(recent_s):.2f} | collision rate = {np.mean(recent_c):.2f} | "
-                  f"noise sigma = {agent.noise.sigma:.3f}")
+        if ep % VERBOSE_EVERY == 0:
+            recent_r = episode_rewards[-VERBOSE_EVERY:]
+            recent_s = episode_success[-VERBOSE_EVERY:]
+            recent_c = episode_collision[-VERBOSE_EVERY:]
+            print(f"Episode {ep:5d}/{EPISODES} | ego={ego_path.map_name} | "
+                  f"avg reward = {np.mean(recent_r):.3f} | success rate = {np.mean(recent_s):.2f} | "
+                  f"collision rate = {np.mean(recent_c):.2f} | noise sigma = {agent.noise.sigma:.3f}")
 
-        if ep % eval_every == 0 or ep == episodes:
-            greedy = greedy_eval_rollout(agent, env)
-            eval_log.append({"episode": ep, **greedy})
-            print(f"  [greedy eval] success={greedy['success']} collided={greedy['collided']} "
-                  f"steps={greedy['steps']} reward={greedy['reward']:.3f}")
+        if ep % EVAL_EVERY == 0 or ep == EPISODES:
+            eval_ego_idx = random.randrange(len(all_paths))
+            eval_ego_path = all_paths[eval_ego_idx]
+            eval_dyn = [DynamicRobotObstacle(p) for i, p in enumerate(all_paths) if i != eval_ego_idx]
+            eval_env = PathFollowDynamicObstacleEnv(eval_ego_path, obstacle_map, eval_dyn, render_mode=None)
+            greedy = greedy_eval_rollout(agent, eval_env)
+            eval_env.close()
+            eval_log.append({"episode": ep, "ego": eval_ego_path.map_name, **greedy})
+            print(f"  [greedy eval, ego={eval_ego_path.map_name}] success={greedy['success']} "
+                  f"collided={greedy['collided']} steps={greedy['steps']} reward={greedy['reward']:.3f}")
 
-    env.close()
+    if env is not None:
+        env.close()
+
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    agent.save(os.path.join(output_dir, f"ddpg_single_robot_obstacle_{episodes}_{timestamp}.pt"))
-    plot_training_curve(episode_rewards, episode_success, episode_collision, eval_log, output_dir)
+    ckpt_path = os.path.join(OUTPUT_DIR, f"ddpg_multi_robot_dynamic_{EPISODES}_{timestamp}.pt")
+    agent.save(ckpt_path)
+    print(f"Saved checkpoint to {ckpt_path}")
+
+    plot_training_curve(episode_rewards, episode_success, episode_collision, eval_log)
+    plot_final_rollout(agent, all_paths, obstacle_map)
     return agent, episode_rewards, episode_success, episode_collision, eval_log
 
 
-def plot_training_curve(episode_rewards, episode_success, episode_collision, eval_log, output_dir):
+def plot_training_curve(episode_rewards, episode_success, episode_collision, eval_log):
     window = 20
     smoothed = (np.convolve(episode_rewards, np.ones(window) / window, mode="valid")
                 if len(episode_rewards) >= window else episode_rewards)
@@ -642,82 +745,63 @@ def plot_training_curve(episode_rewards, episode_success, episode_collision, eva
 
     plt.tight_layout()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    outpath = os.path.join(output_dir, f"training_curve_single_obstacle_{timestamp}.png")
+    outpath = os.path.join(OUTPUT_DIR, f"training_curve_dynamic_{timestamp}.png")
     plt.savefig(outpath, dpi=150)
     plt.close(fig)
     print(f"Saved training curve to {outpath}")
 
 
-def plot_final_rollout(agent, ref_path, obstacle_map, output_dir=OUTPUT_DIR):
-    env = PathFollowObstacleEnv(ref_path, obstacle_map, render_mode=None)
-    state, _ = env.reset()
-    trajectory = [env.pose[:2].copy()]
-    done = False
-    info = {}
-    while not done:
-        action = agent.select_action(state, explore=False)
-        state, reward, done, info = env.step(action)
-        trajectory.append(env.pose[:2].copy())
-    trajectory = np.array(trajectory)
-    env.close()
+def plot_final_rollout(agent, all_paths, obstacle_map):
+    """Runs one greedy rollout per robot path as ego (others as dynamic
+    obstacles) and saves a static PNG for each."""
+    for ego_idx, ego_path in enumerate(all_paths):
+        dynamic_obstacles = [DynamicRobotObstacle(p) for i, p in enumerate(all_paths) if i != ego_idx]
+        env = PathFollowDynamicObstacleEnv(ego_path, obstacle_map, dynamic_obstacles, render_mode=None)
+        state, _ = env.reset()
+        trajectory = [env.pose[:2].copy()]
+        dyn_trajectories = [[d.current_xy().copy()] for d in dynamic_obstacles]
+        done = False
+        info = {}
+        while not done:
+            action = agent.select_action(state, explore=False)
+            state, reward, done, info = env.step(action)
+            trajectory.append(env.pose[:2].copy())
+            for i, d in enumerate(dynamic_obstacles):
+                dyn_trajectories[i].append(d.current_xy().copy())
+        trajectory = np.array(trajectory)
+        env.close()
 
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.plot(ref_path.points[:, 0], ref_path.points[:, 1], "b--", linewidth=2, label="Reference path")
-    ax.plot(trajectory[:, 0], trajectory[:, 1], "-", color="crimson", linewidth=2.5, label="Actual trajectory")
-    ax.plot(*trajectory[0], "go", markersize=10, label="Start")
-    ax.plot(*trajectory[-1], "r^", markersize=11, label="End")
-    for c, r in zip(obstacle_map.centers, obstacle_map.radii):
-        ax.add_patch(plt.Circle(c, r, color="gray", alpha=0.4))
-    ax.set_aspect("equal")
-    ax.set_xlim(ARENA_MIN[0], ARENA_MAX[0])
-    ax.set_ylim(ARENA_MIN[1], ARENA_MAX[1])
-    ax.grid(alpha=0.3)
-    status = "SUCCESS" if info.get("success") else ("COLLISION" if info.get("collided") else "INCOMPLETE")
-    ax.set_title(f"[{ref_path.map_name}] final rollout - {status}")
-    ax.legend(loc="best")
-    plt.tight_layout()
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.plot(ego_path.points[:, 0], ego_path.points[:, 1], "b--", linewidth=2, label="Ego reference path")
+        ax.plot(trajectory[:, 0], trajectory[:, 1], "-", color="crimson", linewidth=2.5, label="Ego trajectory")
+        ax.plot(*trajectory[0], "go", markersize=10, label="Start")
+        ax.plot(*trajectory[-1], "r^", markersize=11, label="End")
+        for i, dt_traj in enumerate(dyn_trajectories):
+            dt_traj = np.array(dt_traj)
+            ax.plot(dt_traj[:, 0], dt_traj[:, 1], "-", color="orange", linewidth=1.5, alpha=0.7,
+                     label=f"Dynamic obstacle {i + 1} path" if i == 0 else None)
+        for c, r in zip(obstacle_map.static_centers, obstacle_map.static_radii):
+            ax.add_patch(plt.Circle(c, r, color="gray", alpha=0.4))
+        ax.set_aspect("equal")
+        ax.set_xlim(ARENA_MIN[0], ARENA_MAX[0])
+        ax.set_ylim(ARENA_MIN[1], ARENA_MAX[1])
+        ax.grid(alpha=0.3)
+        status = "SUCCESS" if info.get("success") else ("COLLISION" if info.get("collided") else "INCOMPLETE")
+        ax.set_title(f"[{ego_path.map_name}] final rollout - {status}")
+        ax.legend(loc="best", fontsize=8)
+        plt.tight_layout()
 
-    os.makedirs(output_dir, exist_ok=True)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    outpath = os.path.join(output_dir, f"final_rollout_{ref_path.map_name}_{timestamp}.png")
-    plt.savefig(outpath, dpi=150)
-    plt.close(fig)
-    print(f"Saved final rollout plot to {outpath}")
-    return outpath
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        outpath = os.path.join(OUTPUT_DIR, f"final_rollout_{ego_path.map_name}_{status}_{timestamp}.png")
+        plt.savefig(outpath, dpi=150)
+        plt.close(fig)
+        print(f"Saved final rollout plot to {outpath}")
 
 
 # ----------------------------------------------------------------------
-# 6. Main
+# 7. Main - just run train(); everything is set via hyperparameters above
 # ----------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Single-robot DDPG: path-following + static obstacle avoidance (7-input, from scratch)")
-    parser.add_argument("--control_points_json", type=str, required=True,
-                         help="Manual per-segment B-spline control-point JSON (e.g. map_003_robot_2_manual_control_points.json)")
-    parser.add_argument("--obstacle_map_json", type=str, required=True,
-                         help="Matching obstacle-map JSON (e.g. map_003_robot_2.json)")
-    parser.add_argument("--episodes", type=int, default=1000)
-    parser.add_argument("--output_dir", type=str, default=OUTPUT_DIR)
-    parser.add_argument("--render", action="store_true", help="Live matplotlib rendering during training")
-    parser.add_argument("--render_every", type=int, default=1)
-    parser.add_argument("--eval_every", type=int, default=25)
-    parser.add_argument("--resume_from", type=str, default=None,
-                         help="Path to a .pt checkpoint to resume training from")
-    args = parser.parse_args()
-
-    ref_path = ReferencePath(args.control_points_json)
-    obstacle_map = ObstacleMap(args.obstacle_map_json)
-    print(f"Loaded path '{ref_path.map_name}' ({len(ref_path.points)} pts, length={ref_path.total_length:.2f}) "
-          f"and {len(obstacle_map.centers)} static obstacles.")
-
     print(f"Using device: {DEVICE}")
-    agent, rewards, success, collisions, eval_log = train(
-        ref_path, obstacle_map, episodes=args.episodes, output_dir=args.output_dir,
-        render=args.render, render_every=args.render_every, eval_every=args.eval_every,
-        resume_from=args.resume_from,
-    )
-
-    plot_final_rollout(agent, ref_path, obstacle_map, output_dir=args.output_dir)
-
-# python single_robot_obstacle_ddpg.py --control_points_json map_003_robot_2_manual_control_points.json --obstacle_map_json map_003_robot_2.json --episodes 1000
-# python single_robot_obstacle_ddpg2.py --control_points_json mandp/map_003_robot_2_manual_control_points.json --obstacle_map_json mandp/map_003_robot_2.json --episodes 500 --resume_from solves_drl_obstacle/ddpg_single_robot_obstacle_500_
+    train()

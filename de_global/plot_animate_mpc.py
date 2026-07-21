@@ -176,17 +176,17 @@ if __name__ == "__main__":
     # Example wiring for 3 robots - adjust paths as needed. map_json is
     # optional (omit/None to skip drawing static obstacles).
     robot_specs = [
-        # {
-        #     "robot_id": "robot_1",
-        #     "control_points_json": "solves/multi/map_001_robot_1_manual_control_points.json",
-        #     "csv_log": "mpc_logs/robot_1_mpc_log.csv",
-        #     "map_json": "maps/map_001_robot_1.json",
-        # },
+        {
+            "robot_id": "robot_1",
+            "control_points_json": "solves/multi/map_010_robot_1_manual_control_points.json",
+            "csv_log": "mpc_logs/robot_1_mpc_log.csv",
+            "map_json": "maps/map_010_robot_1.json",
+        },
         {
             "robot_id": "robot_2",
-            "control_points_json": "solves/multi/map_001_robot_2_manual_control_points.json",
+            "control_points_json": "solves/multi/map_010_robot_2_manual_control_points.json",
             "csv_log": "mpc_logs/robot_2_mpc_log.csv",
-            "map_json": "maps/map_001_robot_2.json",
+            "map_json": "maps/map_010_robot_2.json",
         },
         # {
         #     "robot_id": "robot_3",
