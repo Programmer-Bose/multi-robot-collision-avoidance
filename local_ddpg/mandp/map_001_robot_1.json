@@ -1,0 +1,158 @@
+{
+    "robot_metadata": {
+        "map_number": 1,
+        "robot_number": 1,
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 14,
+        "num_tasks": 4
+    },
+    "start_position": [
+        124,
+        127
+    ],
+    "goal_position": [
+        570,
+        639
+    ],
+    "task_points": {
+        "1": [
+            188,
+            321
+        ],
+        "2": [
+            176,
+            538
+        ],
+        "3": [
+            578,
+            504
+        ],
+        "4": [
+            512,
+            252
+        ]
+    },
+    "task_sequence": [
+        1,
+        2,
+        3,
+        4
+    ],
+    "obstacles": [
+        {
+            "type": "circle",
+            "position": [
+                117,
+                217
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                199,
+                220
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                261,
+                222
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                50,
+                418
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                116,
+                421
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                188,
+                418
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                245,
+                421
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                395,
+                414
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                398,
+                464
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                397,
+                513
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                515,
+                585
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                565,
+                570
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                586,
+                309
+            ],
+            "radius": 40
+        },
+        {
+            "type": "circle",
+            "position": [
+                508,
+                341
+            ],
+            "radius": 40
+        }
+    ]
+}

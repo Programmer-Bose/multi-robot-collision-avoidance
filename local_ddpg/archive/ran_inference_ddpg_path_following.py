@@ -38,7 +38,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ran_ddpg_path_following import (
+from local_ddpg.archive.ran_ddpg_path_following import (
     ReferencePath,
     PathFollowEnv,
     DDPGAgent,

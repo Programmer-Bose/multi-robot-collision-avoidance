@@ -1,0 +1,23 @@
+{
+    "robot_metadata": {
+        "map_number": 4,
+        "robot_number": 1,
+        "size": [
+            800,
+            800
+        ],
+        "num_obstacles": 0,
+        "num_tasks": 0
+    },
+    "start_position": [
+        420,
+        195
+    ],
+    "goal_position": [
+        417,
+        382
+    ],
+    "task_points": {},
+    "task_sequence": [],
+    "obstacles": []
+}

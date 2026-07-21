@@ -36,8 +36,8 @@ from matplotlib.patches import Polygon as MplPolygon, Circle as MplCircle
 # 0. HYPERPARAMETERS / CONFIG
 # ----------------------------------------------------------------------
 
-MAP_JSON_PATH = "maps/map_003_robot_2.json"   # <-- point this at your map file
-OUTPUT_DIR = "solves/multi"
+MAP_JSON_PATH = "mandp/map_003_robot_4.json"   # <-- point this at your map file
+OUTPUT_DIR = "mandp"
 
 TARGET_SCALE = 12.0                 # world coordinate scale, same as the DE script (0-12 x 0-12)
 N_CONTROL_PER_SEGMENT = 6           # free control points per segment (matches DE script)

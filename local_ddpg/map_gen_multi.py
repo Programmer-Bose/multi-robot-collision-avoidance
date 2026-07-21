@@ -3,7 +3,7 @@ from tkinter import filedialog, messagebox
 import json
 import os
 
-MAPS_DIR = "maps"
+MAPS_DIR = "mandp"
 
 
 class MapGenerator:
