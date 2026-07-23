@@ -97,8 +97,8 @@ def animate_and_plot(robot_specs, arena_size=12.0, save_name="mpc_final_paths.pn
     colors = plt.cm.tab10(np.linspace(0, 1, max(len(robot_specs), 1)))
 
     fig, ax = plt.subplots(figsize=(9, 8))
-    ax.set_xlim(0, arena_size)
-    ax.set_ylim(0, arena_size)
+    ax.set_xlim(-2, arena_size+2)
+    ax.set_ylim(-2, arena_size+2)
     ax.set_aspect("equal")
     ax.grid(alpha=0.3)
     ax.set_title("Live DE-MPC execution: planned vs. traversed paths")
@@ -117,13 +117,13 @@ def animate_and_plot(robot_specs, arena_size=12.0, save_name="mpc_final_paths.pn
 
         # --- planned reference path: dashed line ---
         ax.plot(ref_path.points[:, 0], ref_path.points[:, 1], "--", color=color,
-                 linewidth=1.8, alpha=0.85, zorder=2,
+                 linewidth=1.5, alpha=0.85, zorder=2,
                  label=f"{spec['robot_id']} planned path")
 
         annotate_task_points(ax, ref_path, color, spec["robot_id"])
 
         # --- traversed path: solid line, built up frame by frame ---
-        (traversed_line,) = ax.plot([], [], "-", color=color, linewidth=2.5, zorder=3,
+        (traversed_line,) = ax.plot([], [], "-", color=color, linewidth=1.8, zorder=3,
                                      label=f"{spec['robot_id']} traversed path")
         (current_marker,) = ax.plot([], [], "o", color=color, markersize=11,
                                      markeredgecolor="black", zorder=4)
@@ -178,22 +178,22 @@ if __name__ == "__main__":
     robot_specs = [
         {
             "robot_id": "robot_1",
-            "control_points_json": "solves/multi/map_010_robot_1_manual_control_points.json",
-            "csv_log": "mpc_logs/robot_1_mpc_log.csv",
-            "map_json": "maps/map_010_robot_1.json",
+            "control_points_json": "solves/multi/map_002_robot_1_manual_control_points.json",
+            "csv_log": "mpc_logs/map2/robot_1_mpc_log.csv",
+            "map_json": "maps/map_002_robot_1.json",
         },
         {
             "robot_id": "robot_2",
-            "control_points_json": "solves/multi/map_010_robot_2_manual_control_points.json",
-            "csv_log": "mpc_logs/robot_2_mpc_log.csv",
-            "map_json": "maps/map_010_robot_2.json",
+            "control_points_json": "solves/multi/map_002_robot_2_manual_control_points.json",
+            "csv_log": "mpc_logs/map2/robot_2_mpc_log.csv",
+            "map_json": "maps/map_002_robot_2.json",
         },
-        # {
-        #     "robot_id": "robot_3",
-        #     "control_points_json": "solves/multi/map_001_robot_3_manual_control_points.json",
-        #     "csv_log": "mpc_logs/robot_3_mpc_log.csv",
-        #     "map_json": "maps/map_001_robot_3.json",
-        # },
+        {
+            "robot_id": "robot_3",
+            "control_points_json": "solves/multi/map_002_robot_3_manual_control_points.json",
+            "csv_log": "mpc_logs/map2/robot_3_mpc_log.csv",
+            "map_json": "maps/map_002_robot_3.json",
+        },
     ]
 
 

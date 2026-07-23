@@ -58,7 +58,7 @@ SAFETY_MARGIN = 0.10
 
 DT = 0.2
 HORIZON = 8
-MAX_STEPS = 25
+MAX_STEPS = 400
 
 V_MAX = 1.2
 V_MIN = -0.6
@@ -686,13 +686,18 @@ if __name__ == "__main__":
     robot_configs = [
         {
             "robot_id": "robot_1",
-            "map_json": "maps/map_010_robot_1.json",
-            "control_points_json": "solves/multi/map_010_robot_1_manual_control_points.json",
+            "map_json": "maps/map_011_robot_1.json",
+            "control_points_json": "solves/multi/map_011_robot_1_manual_control_points.json",
         },
         {
             "robot_id": "robot_2",
-            "map_json": "maps/map_010_robot_2.json",
-            "control_points_json": "solves/multi/map_010_robot_2_manual_control_points.json",
+            "map_json": "maps/map_011_robot_2.json",
+            "control_points_json": "solves/multi/map_011_robot_2_manual_control_points.json",
+        },
+        {
+            "robot_id": "robot_3",
+            "map_json": "maps/map_011_robot_3.json",
+            "control_points_json": "solves/multi/map_011_robot_3_manual_control_points.json",
         },
     ]
 
